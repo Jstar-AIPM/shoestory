@@ -186,3 +186,16 @@ body {
 [data-theme="card-paper"] .artwork-frame {
   transition: border-color 0.15s ease;
 }
+
+/* 主按钮（blurple）：深底与白卡上都用得到，因此不加作用域限定；
+   放在未分层区域，优先级高于 Tailwind 的 utility 类。 */
+.btn-blurple {
+  background: #5865f2;
+  color: #ffffff;
+  border-color: #5865f2;
+}
+
+.btn-blurple:hover {
+  background: #3442d9;
+  border-color: #3442d9;
+}

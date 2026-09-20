@@ -11,10 +11,19 @@ export type ShoeCardItem = {
  * 鞋柜网格卡片：外框固定 3:2（与画稿画布比例一致）
  * —— 不论鞋型如何，网格永远不参差。
  */
-export function ShoeCard({ item, className }: { item: ShoeCardItem; className?: string }) {
+export function ShoeCard({
+  item,
+  className,
+  onOpen,
+}: {
+  item: ShoeCardItem;
+  className?: string;
+  onOpen?: (shoeId: string) => void;
+}) {
   return (
     <button
       type="button"
+      onClick={() => onOpen?.(item.shoeId)}
       data-theme="card-paper"
       className={cn(
         // min-w-0：grid 子项默认 min-width:auto，遇到长型号名会把整列撑爆（手机端表现为页面横向溢出）

@@ -13,10 +13,12 @@ export function CabinetGrid({
   state,
   items,
   onRetry,
+  onOpen,
 }: {
   state: GridState;
   items: ShoeCardItem[];
   onRetry?: () => void;
+  onOpen?: (shoeId: string) => void;
 }) {
   return (
     <div>
@@ -71,7 +73,7 @@ export function CabinetGrid({
       {state === "ready" && items.length > 0 ? (
         <div className="mt-4 grid min-w-0 grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-4">
           {items.map((item) => (
-            <ShoeCard key={item.shoeId} item={item} />
+            <ShoeCard key={item.shoeId} item={item} onOpen={onOpen} />
           ))}
         </div>
       ) : null}

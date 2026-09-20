@@ -1,0 +1,150 @@
+/**
+ * 后端接口类型（与阶段 1 后端真实契约逐字对应）
+ * 参考：docs/阶段开发文档.md 第 5 节
+ */
+
+export type TaskState =
+  | "created"
+  | "resolving"
+  | "model_not_found"
+  | "resolve_failed"
+  | "awaiting_source_confirm"
+  | "preprocessing"
+  | "generating"
+  | "refining"
+  | "verifying"
+  | "interrupted"
+  | "awaiting_effect_confirm"
+  | "archiving"
+  | "archived"
+  | "failed"
+  | "cancelled";
+
+export type SourceMode = "single" | "model_only" | "choose";
+
+export type ModelCandidate = { name: string; reason?: string };
+
+export type ResolveInfo = {
+  normalized: string;
+  brand: string;
+  confidence: number;
+  exists: boolean;
+  candidates: ModelCandidate[];
+  note: string;
+};
+
+export type SourceCandidate = {
+  index: number;
+  provider: string;
+  url: string | null;
+  width: number | null;
+  height: number | null;
+  credit: string;
+  /** 预筛结果（后端视觉质检给出，用于解释"为什么推荐这张"） */
+  screen_score?: number;
+  screen_reason?: string;
+  screen_usable?: boolean;
+  blur?: string | null;
+  watermark?: string | null;
+  shape?: string | null;
+};
+
+export type Artwork = {
+  attempt: number;
+  url: string;
+  score: number | null;
+  passed: boolean | null;
+  issues: string[];
+};
+
+export type Quality = {
+  score: number | null;
+  attempts: number;
+  checks: Record<string, number>;
+  issues: string[];
+  verdict: string | null;
+  best_attempt: number | null;
+};
+
+export type TaskOut = {
+  task_id: string;
+  state: TaskState;
+  query: string;
+  style_id: string;
+  created_at: string;
+  updated_at: string;
+  progress: { step?: string; label?: string; percent?: number };
+  normalize: ResolveInfo | null;
+  source_candidates: SourceCandidate[];
+  source_mode: SourceMode;
+  recommended_index: number;
+  source_screen: { usable?: boolean; criteria?: string };
+  selected_index: number | null;
+  artworks: Artwork[];
+  current_artwork_url: string | null;
+  quality: Quality;
+  error: { code: string; message: string; detail?: Record<string, unknown> } | null;
+  upstream_calls: number;
+  est_cost_cny: number;
+  can: {
+    select_source: boolean;
+    archive: boolean;
+    regenerate: boolean;
+    cancel: boolean;
+  };
+};
+
+export type ArchiveListItem = {
+  shoe_id: string;
+  model_name: string;
+  artwork_url: string;
+  date_text: string | null;
+  date_sort_key: string | null;
+  created_at: string;
+  has_story: boolean;
+};
+
+export type ArchiveListResponse = {
+  total: number;
+  items: ArchiveListItem[];
+  warning?: string | null;
+};
+
+export type ArchiveDetail = {
+  shoe_id: string;
+  model_name: string;
+  model_name_input: string;
+  artwork_url: string;
+  artwork_meta: Record<string, unknown>;
+  date_text: string | null;
+  date_sort_key: string | null;
+  story: string | null;
+  created_at: string;
+  style_id: string;
+  style_version: number;
+  source: { provider?: string; url?: string | null; credit?: string } | null;
+  quality: { score?: number | null; attempts?: number; checks?: Record<string, number> } | null;
+  rights_note: string;
+  position?: number | null;
+  total?: number | null;
+  prev_shoe_id?: string | null;
+  next_shoe_id?: string | null;
+};
+
+export type DateParseResponse = {
+  input: string;
+  date_sort_key: string | null;
+  kind: string;
+  failed: boolean;
+  hint: string;
+};
+
+export type HealthResponse = {
+  status: string;
+  version: string;
+  env: string;
+  providers: { mode: "real" | "mock"; ark: string; search: string };
+  flags: { mock_mode: boolean; manual_source_enabled: boolean };
+  missing_config: string[];
+  notes: string[];
+};
