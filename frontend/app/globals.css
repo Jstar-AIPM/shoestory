@@ -1,0 +1,107 @@
+@import "tailwindcss";
+
+/* ============================================================
+   「履历」设计变量 —— 纸质档案感 + 极简
+   原则：界面让位给线稿。3:2 线稿永远是页面上最大的元素。
+   不提供深色模式（PRD 未要求，避免半成品体验）。
+   ============================================================ */
+
+:root {
+  /* 基础色 */
+  --color-ink: #111111;        /* 墨黑：正文、线稿的呼应色 */
+  --color-paper: #fafaf8;      /* 纸白：页面底色 */
+  --color-surface: #ffffff;    /* 面板白：卡片 */
+  --color-line: #e6e3dc;       /* 分隔线 / 边框 */
+  --color-muted: #6b6b66;      /* 次要文字 */
+  --color-faint: #a3a29c;      /* 更弱的说明文字 */
+
+  /* 强调色：只用于「时间 / 年代」这类档案信息，不做装饰 */
+  --color-accent: #8a6a47;
+
+  /* 状态色：只用于状态，不做装饰 */
+  --color-success: #237804;
+  --color-warn: #b7791f;
+  --color-danger: #b42318;
+
+  /* 圆角与阴影：小圆角、几乎不用阴影 */
+  --radius-card: 8px;
+  --radius-btn: 6px;
+  --shadow-soft: 0 1px 2px rgba(17, 17, 17, 0.04);
+
+  /* 字体：中文一律走系统字体（不引入商用字体） */
+  --font-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", sans-serif;
+  --font-display: "Songti SC", "Source Han Serif SC", "Noto Serif CJK SC", "SimSun", Georgia,
+    serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@theme inline {
+  --color-ink: var(--color-ink);
+  --color-paper: var(--color-paper);
+  --color-surface: var(--color-surface);
+  --color-line: var(--color-line);
+  --color-muted: var(--color-muted);
+  --color-faint: var(--color-faint);
+  --color-accent: var(--color-accent);
+  --color-success: var(--color-success);
+  --color-warn: var(--color-warn);
+  --color-danger: var(--color-danger);
+
+  --radius-card: var(--radius-card);
+  --radius-btn: var(--radius-btn);
+  --shadow-soft: var(--shadow-soft);
+
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.65;
+  /* 禁止任何宽度下出现横向滚动 */
+  overflow-x: hidden;
+}
+
+/* 展示标题：衬线，档案感 */
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: 0.04em;
+}
+
+/* 3:2 线稿容器：任何位置都复用，保证不跳动、不变形 */
+.frame-3x2 {
+  aspect-ratio: 3 / 2;
+  background: #fff;
+  display: block;
+  width: 100%;
+}
+
+.frame-3x2 img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+/* 键盘可达性：焦点必须清晰 */
+:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+/* 尊重「减少动态效果」偏好 */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
