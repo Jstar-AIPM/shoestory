@@ -1,0 +1,31 @@
+MIT License
+
+Copyright (c) 2026 JIN
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+## 商标与用途声明（DISCLAIMER）
+
+- 本项目是**个人纪念性再创作**工具：把球鞋照片转成黑白线稿，用于个人收藏与纪念。
+- 项目产出物与示例中涉及的所有品牌名称、Logo 与商标，**归各原品牌所有**；本项目与任何
+  品牌方无关联、无授权关系，也**不用于商业用途**，不二次分发原始商品图片。
+- 仓库内**不包含**任何真实品牌商品图；演示模式（mock）产出的是本地生成的占位线稿。
+- 使用者需自行确保其上传/检索来源与使用方式符合当地法律与平台条款。

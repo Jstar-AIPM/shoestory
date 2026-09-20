@@ -1,0 +1,35 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 第一层测试（全 mock，离线）
+        run: python -m pytest -q
+
+      - name: 冒烟脚本自检（无 Key 时必须如实报告“待验”，不得冒充通过）
+        run: |
+          python scripts/smoke_real.py --query "kd12" || code=$?
+          if [ "${code:-0}" != "2" ]; then
+            echo "无 Key 时冒烟脚本必须以退出码 2 表示“待验”"; exit 1
+          fi
+          grep -q "待验" ../docs/早期冒烟报告.md

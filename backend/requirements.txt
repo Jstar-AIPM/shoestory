@@ -1,0 +1,25 @@
+# 「履历」阶段 1 依赖（Python 3.12.x，与 veFaaS 运行时 native-python3.12 对齐）
+# 安装： uv pip install --python .venv/bin/python -r backend/requirements.txt
+# 以下为 2026-09 实测锁定版本；升级核心依赖大版本前必须先跑 pytest 回归。
+
+# --- Web / 校验 ---
+fastapi==0.141.1
+uvicorn==0.53.0
+pydantic==2.13.5
+pydantic-settings==2.15.0
+python-dotenv==1.2.3
+
+# --- HTTP（火山方舟 / 搜图上游）---
+httpx==0.28.1
+
+# --- 图像与 CV ---
+pillow==12.3.0
+numpy==2.5.3
+opencv-python-headless==5.0.0.93
+
+# --- 配置模板 ---
+pyyaml==6.0.3
+
+# --- 测试 ---
+pytest==9.1.1
+pytest-asyncio==1.4.0

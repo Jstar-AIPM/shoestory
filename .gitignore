@@ -1,0 +1,43 @@
+# --- 秘密：绝不提交 ---
+.env
+.env.local
+*.key
+tmp/
+.secrets/
+
+# --- 运行时数据（图片、档案、日志、轨迹）---
+# 根目录下任何以 data 开头的目录/文件都排除（含迭代中的临时备份 data.prev-xxx 等）
+/data*/
+backend/data/
+
+# --- 用户私人物料 / 第三方素材（不随仓库发布）---
+# 参考图为第三方品牌鞋款线稿素材；测试效果为本地验收产物。
+# 依据免责声明「仓库内不提交真实品牌商品图」，这两项目录仅本地保留。
+风格参考/
+测试效果/
+docs/风格探针/
+docs/smoke-artifacts/
+
+# --- Python ---
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# --- 部署 ---
+.vefaas/
+
+# --- 前端（阶段 3）---
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# --- 编辑器 / 系统 ---
+.DS_Store
+.idea/
+.vscode/
+*.swp

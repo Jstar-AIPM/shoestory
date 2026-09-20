@@ -1,0 +1,25 @@
+# veFaaS CLI 打包排除清单（部署前必须生效，否则 .env 密钥会被打进代码包）
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+data/
+backend/data/
+tmp/
+.vefaas/
+tests/
+scripts/
+开发文档/
+开发手册/
+docs/
+frontend/
+.git/
+.gitignore
+.vefaasignore
+*.md
+!README.md
+.DS_Store

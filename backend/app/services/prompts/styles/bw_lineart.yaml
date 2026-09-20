@@ -1,0 +1,94 @@
+# 风格模板：黑白线稿（V1 唯一风格）
+# ⚠️ 本文件的 positive/negative 与 style_metrics 是从 4 张参考图（风格参考/ 目录）
+#    实测量化后写的，不是形容词堆砌。改动前请先跑：python scripts/style_calibrate.py
+style_id: bw_lineart
+name: 黑白线稿
+version: 4
+reference_images: [AJ14, KD12, PG1, PG6] # ground truth：风格参考/ 目录（不随线上发布）
+reference_metrics: docs/风格量化指标.md # 量化结果与目标区间
+
+canvas: # → 保证「外轮廓尺寸一致」
+  aspect_ratio: "3:2"
+  view: lateral
+  direction: toe_left
+  padding: 8%
+  background: white
+  overlay_text: none # 画稿不叠加任何文字
+
+# 参考图实测的「风格语言」——五件套，只用这五种手段表达一切：
+#   ① 粗黑实心外轮廓（参考图线宽约 12-14px @1536 宽）
+#   ② 中细结构线（鞋面分区、拼接边界）
+#   ③ 成排虚线（车缝线，dash）
+#   ④ 纯黑实心块（Logo / 中底 / 鞋带 / 鞋眼孔 / 局部拼接）
+#   ⑤ 规律稀疏小圆点（透气孔、材质孔位；只在原鞋有孔的位置出现）
+# 禁止：排线、交叉影线、素描涂抹、手绘抖动、渐变、灰阶、点阵密铺
+prompt:
+  positive: |
+    黑白线稿风格，扁平矢量插画质感，纯黑白二值，无灰阶无渐变无阴影无背景；
+    正侧面单只鞋，鞋头朝左，居中，鞋身占画面宽度约 85%，大面积白底留白；
+    抽象化处理：去掉光影与照片质感；只保留原鞋的主要分区线与缝线，
+    不要细分出过多小结构（参考图里鞋面通常只有 3-5 条主结构线）；
+    外轮廓用粗黑实线，内部结构用中细线分层，线条平滑均匀、粗细档位统一；
+    画面以留白和线条为主：白底面积约占 90%，黑色只做点缀；
+    实心黑块**极克制**：只用于 Logo（钩形/飞人/交叉条纹）、鞋带、鞋眼孔这类小元素，
+    且面积要小；中底、鞋头、鞋面、后跟一律用轮廓线与结构线表达，**不得整块涂黑**；
+    透气孔用稀疏小圆点：整幅不超过 15 个，只画在原鞋明显有孔的位置，不要铺满鞋面；
+    缝线用连续虚线（短横线），不要画成点线；
+    车缝线用成排虚线，线条要顺滑、不要抖动；
+    线条粗细统一：外轮廓略粗、内部结构线细，整体线宽均匀（粗线约 8-10px、细线约 2-3px，按 1536 宽画布计）；
+    严格描摹原鞋轮廓与拼接结构，不得改变鞋型、不得增删部件；
+    禁止排线、交叉影线、素描涂抹、手绘抖动笔触；
+    Logo 必须是该型号**真实使用的品牌 Logo**：ASICS 用交叉条纹、Nike 用钩形、
+    Jordan 用飞人、adidas 用三道杠——绝对不得用其他品牌的 Logo 代替，
+    Logo 形状清晰准确并用实心黑块填充；鞋型结构忠于原鞋，画面干净利落。
+  negative: |
+    彩色, 灰阶, 渐变, 阴影, 投影, 环境背景, 多只鞋, 俯视, 透视变形,
+    模糊, 噪点, 杂乱线条, 错误Logo, 变形鞋型, 水印, 3D渲染, 写实照片,
+    排线, 交叉影线, 素描, 手绘涂抹, 阴影线, 铅笔质感, 抖动的线, 点阵密铺, 密集小点,
+    大面积黑块, 涂黑中底, 涂黑鞋头, 涂黑鞋面, 黑色色块替代线条, 照搬照片深色区域,
+    画面内新增文字, 鞋头朝右
+
+constraints: # → 保证「核心元素比例统一」
+  structure_control: controlnet_edge # 落地方式：把 CV 边缘骨架图作为第二张参考图（见 services/cv/edges.py）
+  logo_fidelity: high
+
+provider_params: # 全部可被 .env / 请求覆盖，绝不硬编码
+  # size 取值（已按官方《图片生成 API》核对）：
+  #   1) "宽x高"：如 "1536x1024"（3:2，确定性强，推荐先用这个）
+  #   2) 分辨率档位 "1K" / "1.5K" / "2K"：Seedream 5.0 pro 推荐用法（效果更好），
+  #      最终像素由模型决定；后处理会自动等比缩放并补白到 3:2 画布，硬指标不变。
+  size: "1536x1024"
+  aspect_ratio: "3:2"
+  seed: null # null = 每轮随机；重试时按轮次微调
+  reference_mode: multi_if_available # 有多图参考能力则传 2 张（实物照片 + 边缘骨架图）
+  guidance_scale: null
+
+postprocess:
+  binarize_threshold: auto
+  normalize_to_canvas: true # 任意输出尺寸 -> 等比缩放 + 白底补齐到 3:2（硬指标恒成立）
+  stitch: dashed
+  texture: dots_sparse # 规律稀疏小圆点（参考图实测：20-325 个）
+
+quality_gate: # 交给 s17 独立质检 + 确定性风格闸门
+  checks: [shoe_silhouette_match, logo_legibility, style_consistency, noise_level, canvas_ratio]
+  weights:
+    shoe_silhouette_match: 0.35
+    logo_legibility: 0.25
+    style_consistency: 0.20
+    noise_level: 0.10
+    canvas_ratio: 0.10
+  hard_gate:
+    logo_legibility: 0.6
+    canvas_ratio: 1.0
+  min_score: 0.80
+  # 风格一致性闸门：由参考图量化得出（docs/风格量化指标.md），由代码判定，不信模型。
+  # - hatch_suspect：**硬判据**。4 张参考图实测全为 0；"排线版"问题图 = 34；干净版 = 4。
+  #   实测证明它是唯一能区分"排线/素描"与"干净线稿"的指标，因此只有它当硬闸门。
+  # - ink_ratio / solid_black_share：**观察区间**（比参考图的实测范围放宽），
+  #   用于发现"画太空/涂太黑"这类明显跑偏；参考图实测为 ink 0.064-0.098、黑块 0.06-0.094，
+  #   模型逐次生成有 ±0.03 的波动，收得太紧会误杀合格产出。
+  style_metrics:
+    hatch_suspect: [0, 6]              # 排线：参考图全为 0，排线版为 34
+    ink_ratio: [0.045, 0.115]          # 墨量：参考图 0.064-0.098
+    solid_black_share: [0.030, 0.105]  # 实心黑块：参考图 0.060-0.094
+    filled_block_share: [0.020, 0.100] # 大面积涂黑：参考图 0.036-0.075（中底整块涂黑会 >0.13）
