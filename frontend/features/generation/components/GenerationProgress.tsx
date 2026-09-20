@@ -25,7 +25,9 @@ export function GenerationProgress({ task }: { task: TaskOut }) {
   return (
     <Card className="px-5 py-5 sm:px-6">
       <div className="flex items-center justify-between gap-4">
-        <h2 className="text-[17px] font-semibold text-ink">{label}</h2>
+        <h2 className="text-[17px] font-semibold text-ink" aria-live="polite" aria-atomic="true">
+          {label}
+        </h2>
         <span className="text-[12.5px] text-faint">已用时 {elapsed} 秒</span>
       </div>
 

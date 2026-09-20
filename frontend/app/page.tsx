@@ -11,7 +11,7 @@
  *   型号输入 → 校对 → 源图确认（三种形态）→ 生成进度 → 效果确认 → 时间/故事 → 归档 → 网格回显
  *   另含：刷新/离开后按 ?task= 恢复真实状态、轮询退避、页面不可见暂停、防重复提交。
  */
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { PageShell } from "@/components/layout/PageShell";
 import { Alert } from "@/components/ui/Alert";
@@ -28,9 +28,9 @@ import { ModelInput } from "@/features/generation/components/ModelInput";
 import { ResolveFeedback } from "@/features/generation/components/ResolveFeedback";
 import { SourceConfirm } from "@/features/generation/components/SourceConfirm";
 import { useTaskFlow } from "@/features/generation/hooks/useTaskFlow";
-import { getArchive } from "@/lib/api/archive";
 import { getHealth } from "@/lib/api/system";
-import type { ArchiveDetail, HealthResponse } from "@/lib/api/types";
+import { track } from "@/lib/analytics";
+import type { HealthResponse } from "@/lib/api/types";
 import { toUiState } from "@/lib/state/taskState";
 
 export default function CabinetPage() {
@@ -40,11 +40,8 @@ export default function CabinetPage() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [archiving, setArchiving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const [detail, setDetail] = useState<{ open: boolean; data: ArchiveDetail | null; loading: boolean }>({
-    open: false,
-    data: null,
-    loading: false,
-  });
+  /** 详情弹窗：只保存"当前打开的 shoe_id"，详情数据由弹窗自己按需拉取 */
+  const [detailShoeId, setDetailShoeId] = useState<string | null>(null);
 
   useEffect(() => {
     getHealth()
@@ -53,23 +50,33 @@ export default function CabinetPage() {
   }, []);
 
   useEffect(() => {
+    if (cabinet.state === "ready" || cabinet.state === "empty") {
+      track("cabinet_loaded", { count: cabinet.items.length, state: cabinet.state });
+    }
+  }, [cabinet.state, cabinet.items.length]);
+
+  useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(null), 4000);
     return () => clearTimeout(timer);
   }, [toast]);
 
-  const openDetail = useCallback(async (shoeId: string) => {
-    setDetail({ open: true, data: null, loading: true });
-    try {
-      const data = await getArchive(shoeId);
-      setDetail({ open: true, data, loading: false });
-    } catch {
-      setDetail({ open: true, data: null, loading: false });
-    }
-  }, []);
-
   const task = flow.task;
   const ui = toUiState(task?.state);
+
+  // 生成结果埋点：同一任务只记一次（避免轮询重复上报）
+  const trackedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!task) return;
+    if (task.state === "awaiting_effect_confirm" && trackedRef.current !== task.task_id) {
+      trackedRef.current = task.task_id;
+      track("generated", { attempts: task.quality?.attempts ?? 1, score: task.quality?.score ?? null });
+    }
+    if (task.state === "failed" && trackedRef.current !== `${task.task_id}:failed`) {
+      trackedRef.current = `${task.task_id}:failed`;
+      track("generation_failed", { code: task.error?.code ?? "UNKNOWN" });
+    }
+  }, [task]);
   const mode = health?.providers.mode ?? (health ? "real" : "unknown");
   const mockMode = health?.flags.mock_mode ?? false;
 
@@ -107,7 +114,10 @@ export default function CabinetPage() {
             <ModelInput
               submitting={flow.submitting}
               disabled={ui === "running" || ui === "waiting_user"}
-              onSubmit={(query) => void flow.submit(query)}
+              onSubmit={(query) => {
+                track("generation_submitted", { query_len: query.length });
+                void flow.submit(query);
+              }}
             />
           </div>
           {flow.restoring ? (
@@ -138,7 +148,10 @@ export default function CabinetPage() {
                 <SourceConfirm
                   task={task}
                   busy={flow.busy}
-                  onChoose={(payload) => void flow.choose(payload)}
+                  onChoose={(payload) => {
+                    track("source_confirmed", { mode: task.source_mode, model_only: Boolean(payload.use_model_only) });
+                    void flow.choose(payload);
+                  }}
                   onReset={flow.reset}
                 />
               ) : null}
@@ -167,7 +180,10 @@ export default function CabinetPage() {
                   task={task}
                   busy={flow.busy}
                   onArchive={() => setArchiving(true)}
-                  onRegenerate={() => void flow.regenerate("用户点重新生成")}
+                  onRegenerate={() => {
+                    track("regenerated");
+                    void flow.regenerate("用户点重新生成");
+                  }}
                   onReset={() => void flow.cancel()}
                 />
               ) : null}
@@ -179,12 +195,18 @@ export default function CabinetPage() {
                   onSubmit={async (payload) => {
                     const result = await flow.archive(payload);
                     setArchiving(false);
-                    if (result) setToast("已归档进鞋柜");
+                    if (result) {
+                      track("archived", { has_date: Boolean(payload.date_text), has_story: Boolean(payload.story) });
+                      setToast("已归档进鞋柜");
+                    }
                   }}
                   onSkip={async () => {
                     const result = await flow.archive({});
                     setArchiving(false);
-                    if (result) setToast("已归档进鞋柜");
+                    if (result) {
+                      track("archived", { has_date: false, has_story: false, skipped: true });
+                      setToast("已归档进鞋柜");
+                    }
                   }}
                 />
               ) : null}
@@ -226,7 +248,7 @@ export default function CabinetPage() {
               artworkUrl: item.artwork_url,
               dateText: item.date_text,
             }))}
-            onOpen={(shoeId) => void openDetail(shoeId)}
+            onOpen={(shoeId) => setDetailShoeId(shoeId)}
             onRetry={() => void cabinet.retry()}
           />
 
@@ -246,10 +268,11 @@ export default function CabinetPage() {
       </main>
 
       <ShoeDetailDialog
-        open={detail.open}
-        detail={detail.data}
-        loading={detail.loading}
-        onClose={() => setDetail({ open: false, data: null, loading: false })}
+        key={detailShoeId ?? "none"}
+        shoeId={detailShoeId}
+        onClose={() => setDetailShoeId(null)}
+        onChanged={() => void cabinet.reload()}
+        onNavigate={(nextId) => setDetailShoeId(nextId)}
       />
 
       {/* 归档成功提示（不阻塞主流程） */}

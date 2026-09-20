@@ -15,16 +15,19 @@ export function DialogContent({
   children,
   className,
   labelledBy,
+  onKeyDown,
 }: {
   children: React.ReactNode;
   className?: string;
   labelledBy?: string;
+  onKeyDown?: React.KeyboardEventHandler<HTMLDivElement>;
 }) {
   return (
     <RadixDialog.Portal>
       <RadixDialog.Overlay className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm" />
       <RadixDialog.Content
         aria-labelledby={labelledBy}
+        onKeyDown={onKeyDown}
         data-theme="card-paper"
         className={
           className ??
