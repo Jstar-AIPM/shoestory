@@ -41,3 +41,6 @@ frontend/out/
 .idea/
 .vscode/
 *.swp
+
+# 演示录屏（含真实品牌鞋款线稿，默认不随仓库发布；如需放进 README 请自行决定）
+docs/demo/
