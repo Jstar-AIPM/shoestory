@@ -1,13 +1,15 @@
 "use client";
 
 /**
- * 方案 B 试点：黑夜画廊（Dark Gallery）
+ * 风格对比页：设计参考(Discord) 融合的两个方向
+ *   方向 B：全深色画廊（Dark Gallery）
+ *   方向 C：深色墙 + 白卡（展示深色 / 阅读纸白）
  *
  * 来源：用户指定的 设计参考 风格页（Discord 设计系统）。
  * 融合原则：取它的深色底 / 强对比 / 胶囊圆角 / 状态三色，
  *          保留我们产品的核心 —— 画稿永远是页面最大元素。
  *
- * 这是一个**对比用 demo**：不改动白纸版首页（`/`），便于二选一。
+ * 页内右上角开关可实时切换 B / C，便于一眼对比（不改动白纸版首页 `/`）。
  */
 import { useState } from "react";
 
@@ -26,6 +28,7 @@ const ITEMS: ShoeCardItem[] = [
 ];
 
 export default function GalleryDemoPage() {
+  const [variant, setVariant] = useState<"gallery" | "hybrid">("hybrid");
   const [preview, setPreview] = useState<GridState | "populated">("populated");
   const gridState: GridState = !IS_DEV ? "empty" : preview === "populated" ? "ready" : preview;
   const items = IS_DEV && preview === "populated" ? ITEMS : [];
@@ -44,9 +47,25 @@ export default function GalleryDemoPage() {
               履（鞋）＋ 历（经历）
             </span>
           </div>
-          <span className="rounded-full border border-[#57f287]/30 bg-[#57f287]/10 px-3 py-1 text-[12px] text-[#57f287]">
-            真实模型
-          </span>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 rounded-full border border-[#2f336e] bg-[#0e0f2d]/70 p-1 text-[12.5px]">
+              <button
+                onClick={() => setVariant("gallery")}
+                className={cn("rounded-full px-3 py-1", variant === "gallery" ? "bg-[#5865f2] text-white" : "text-[#babcd9] hover:text-white")}
+              >
+                B 全深色
+              </button>
+              <button
+                onClick={() => setVariant("hybrid")}
+                className={cn("rounded-full px-3 py-1", variant === "hybrid" ? "bg-[#5865f2] text-white" : "text-[#babcd9] hover:text-white")}
+              >
+                C 深色墙+白卡
+              </button>
+            </div>
+            <span className="hidden rounded-full border border-[#57f287]/30 bg-[#57f287]/10 px-3 py-1 text-[12px] text-[#57f287] sm:inline">
+              真实模型
+            </span>
+          </div>
         </div>
       </header>
 
