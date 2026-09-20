@@ -37,15 +37,31 @@ class VolcImageSearchProvider:
         self.endpoint = settings.volc_search_endpoint or DEFAULT_ENDPOINT
 
     # ---- 请求体（按官方字段名）----
-    def _build_payload(self, model_name: str, limit: int) -> dict:
+    def _build_payload(self, model_name: str, limit: int, attempt: int = 0) -> dict:
+        """attempt=0 用严格过滤；仍为空则逐步放宽。
+
+        实测：`ImageWidthMin=800 + 横长方形` 对 Nike 能返回 4 张，但对 ASICS 这类
+        覆盖较少的品牌会直接返回 0 张。过滤条件太严会把"型号存在但图少"误判成"没这双鞋"，
+        因此在返回空时自动放宽一次（宁可拿到一张稍差的候选，也别让用户无路可走）。
+        """
+        # 经实测选定的阶梯（同一过滤条件的返回结果本身会波动，因此必须留退路）：
+        #   ① 宽≥800 + 横/方  —— KD12 能出 4 张高清横图
+        #   ② 宽≥400 + 横/方  —— ASICS 这类覆盖少的品牌只有放宽后才出图
+        filters = [
+            {
+                "ImageWidthMin": self.settings.search_image_width_min,
+                "ImageShapes": ["横长方形", "方形"],
+            },
+            {
+                "ImageWidthMin": min(self.settings.search_image_min_edge, 400),
+                "ImageShapes": ["横长方形", "方形"],
+            },
+        ]
         payload: dict = {
             "Query": model_name[:100],  # 官方限制 1~100 字符
             "SearchType": "image",
             "Count": max(1, min(limit, 5)),  # 官方最多 5 条
-            "Filter": {
-                "ImageWidthMin": self.settings.search_image_width_min,
-                "ImageShapes": [self.settings.search_image_shape],
-            },
+            "Filter": filters[min(attempt, len(filters) - 1)],
             "QueryControl": {"QueryRewrite": False},  # 改写会增加耗时，默认关闭
         }
         return payload
@@ -112,6 +128,32 @@ class VolcImageSearchProvider:
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.settings.volc_search_api_key}",
         }
+        attempts = 2 if self.settings.search_relax_on_empty else 1
+        raw_candidates: list[SourceCandidate] = []
+        for attempt in range(attempts):
+            raw_candidates = self._search_once(
+                headers=headers, model_name=model_name, limit=limit, attempt=attempt, recorder=recorder
+            )
+            # 尺寸不够的候选直接丢掉（后续校验要求长边 ≥ min_edge，留着只会误导用户）
+            usable = [
+                c
+                for c in raw_candidates
+                if (c.width or 0) >= self.settings.search_image_min_edge
+                and (c.height or 0) >= self.settings.search_image_min_edge
+            ]
+            if usable:
+                return usable[:limit]
+        return []
+
+    def _search_once(
+        self,
+        *,
+        headers: dict,
+        model_name: str,
+        limit: int,
+        attempt: int,
+        recorder: CallRecorder,
+    ) -> list[SourceCandidate]:
         recorder.check("search")
         with timer() as box:
             try:
@@ -119,7 +161,7 @@ class VolcImageSearchProvider:
                     response = client.post(
                         self.endpoint,
                         headers=headers,
-                        json=self._build_payload(model_name, limit),
+                        json=self._build_payload(model_name, limit, attempt),
                     )
             except httpx.TimeoutException as exc:
                 recorder.record(
@@ -162,6 +204,8 @@ class VolcImageSearchProvider:
             duration_ms=box["ms"],
             detail={
                 "found": len(candidates),
+                "attempt": attempt,
+                "filter": "strict" if attempt == 0 else "relaxed",
                 "clean": sum(1 for c in candidates if getattr(c, "blur", None) == "清晰"),
             },
         )

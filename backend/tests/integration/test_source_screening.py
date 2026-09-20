@@ -123,15 +123,20 @@ def test_model_only_fallback_path(client_factory, monkeypatch) -> None:
     assert any(item["event"] == "model_only_generation" for item in trace)
 
 
-def test_model_only_requires_candidates(client: TestClient) -> None:
+def test_model_only_works_even_when_search_returns_nothing(client: TestClient) -> None:
+    """搜图 0 结果时，用户仍必须能继续（否则"型号存在但没图"会让人无路可走）。"""
     from tests.conftest import EmptySearchProvider
 
     client.app.state.container.providers.search = EmptySearchProvider()
     task = create_task(client, "kd12")
     assert task["state"] == "resolve_failed"
+
     response = client.post(f"/api/v1/tasks/{task['task_id']}/source", json={"use_model_only": True})
-    assert response.status_code == 422
-    assert response.json()["error"]["code"] == "SOURCE_NOT_FOUND"
+    assert response.status_code == 202, response.text
+
+    final = client.get(f"/api/v1/tasks/{task['task_id']}").json()
+    assert final["state"] in {"awaiting_effect_confirm", "failed"}
+    assert final["artworks"], final
 
 
 def test_request_rejects_conflicting_source_options(client: TestClient) -> None:

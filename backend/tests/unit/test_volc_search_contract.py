@@ -112,7 +112,8 @@ def test_request_matches_documented_contract(monkeypatch) -> None:
     assert body["SearchType"] == "image"
     assert body["Count"] == 5
     assert body["Filter"]["ImageWidthMin"] == 800
-    assert body["Filter"]["ImageShapes"] == ["横长方形"]
+    # 形状白名单含"横长方形"（正侧面命中率更高），并允许方形作为兜底
+    assert "横长方形" in body["Filter"]["ImageShapes"]
     assert body["QueryControl"]["QueryRewrite"] is False
 
 
@@ -160,6 +161,23 @@ def test_http_401_maps_to_auth_error(monkeypatch) -> None:
 def test_empty_result_is_business_result_not_exception(monkeypatch) -> None:
     provider = make_provider(monkeypatch, {"ResponseMetadata": {}, "Result": None})
     assert provider.search(model_name="kd12", limit=5, recorder=make_recorder()) == []
+
+
+def test_undersized_candidates_are_dropped(monkeypatch) -> None:
+    """尺寸不够的候选图不能当参考图（会让后续校验失败、误导用户）。"""
+    payload = {
+        "ResponseMetadata": {},
+        "Result": {
+            "ResultCount": 2,
+            "ImageResults": [
+                {"Id": "1", "Image": {"Url": "https://img/a.jpg", "Width": 448, "Height": 222}},
+                {"Id": "2", "Image": {"Url": "https://img/b.jpg", "Width": 900, "Height": 600}},
+            ],
+        },
+    }
+    provider = make_provider(monkeypatch, payload)
+    candidates = provider.search(model_name="kd12", limit=5, recorder=make_recorder())
+    assert [c.url for c in candidates] == ["https://img/b.jpg"]
 
 
 def test_ranking_prefers_clear_watermark_free_landscape(monkeypatch) -> None:

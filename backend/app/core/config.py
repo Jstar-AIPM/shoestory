@@ -80,6 +80,10 @@ class Settings(BaseSettings):
     #: 文搜图过滤：最小宽度与形状（横长方形 = 正侧面概率更高）
     search_image_width_min: int = 800
     search_image_shape: str = "横长方形"
+    #: 候选图的最小边长（小于它的图当参考图没意义，直接丢弃）
+    search_image_min_edge: int = 400
+    #: 严格过滤返回 0 张时，自动放宽一次再搜（避免小众品牌被误判成"没这双鞋"）
+    search_relax_on_empty: bool = True
 
     # ---------- 生成与质检 ----------
     style_id: str = "bw_lineart"

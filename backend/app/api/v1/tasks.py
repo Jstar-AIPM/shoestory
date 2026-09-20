@@ -263,14 +263,14 @@ def select_source(
 
     model_only = bool(payload.use_model_only)
     if model_only:
-        # 兜底：候选图都不适合当参考 -> 直接用型号生成；把最佳候选留给质检做比对
-        if not record.source.candidates:
-            raise AppError(ErrorCode.SOURCE_NOT_FOUND)
-        best = record.source.candidates[0]
+        # 兜底：候选图都不适合当参考（或压根搜不到图）-> 直接用型号生成。
+        # 注意：这条路径**不需要候选图**，因此搜图为空时用户同样有出路。
+        best = record.source.candidates[0] if record.source.candidates else None
         # 注意：不把这张不可用的图存成质检基准（否则"鞋型不符"是坏图造成的误判）
-        record.source.selected_index = best.index
-        record.source.selected_provider = best.provider
-        record.source.selected_url = best.url
+        if best is not None:
+            record.source.selected_index = best.index
+            record.source.selected_provider = best.provider
+            record.source.selected_url = best.url
         record.source.manual = False
         record.source.use_model_only = True
         record.source.source_path = None
