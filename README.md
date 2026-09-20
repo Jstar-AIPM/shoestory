@@ -3,7 +3,7 @@
 > 输入一款鞋的型号 → 取到这款鞋的图 → 转成固定风格的**黑白线稿** → 确认后归档进「我的鞋柜」。
 > 一双鞋 = 人生履历上的一行。
 
-`阶段 1（核心链路）已完成` · `198 项自动化测试全绿` · `真实模型 + 真实搜图端到端跑通` · `单次调用量 –0.67` · `生成 14–34 秒`
+`后端阶段 1 已完成` · `前端阶段 3：3.0–3.4 完成` · `后端 198 项 + 前端 26 项测试全绿` · `真实模型 + 真实搜图端到端跑通` · `单次调用量 –0.67` · `生成 14–34 秒`
 
 ---
 
@@ -29,12 +29,27 @@ uv pip install --python .venv/bin/python -r backend/requirements.txt
 # 2) 配置（不填 Key 也能跑，会自动进入演示模式）
 cp .env.example .env
 
-# 3) 启动
+# 3) 启动后端（FastAPI）
 cd backend
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8787
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8787
+
+# 4) 启动前端（Next.js，另开一个终端）
+cd frontend
+npm install
+npm run dev -- -p 3311
 ```
 
-打开 <http://127.0.0.1:8787> 即可。**没有 Key 时**页面顶部会显示"演示模式（mock 上游）"，
+**打开 <http://127.0.0.1:3311> 即可**（这是正式界面）。
+
+| 服务 | 地址 | 说明 |
+| --- | --- | --- |
+| 前端（正式界面） | <http://127.0.0.1:3311> | Next.js；通过同源代理调用后端（`/api/*` → `BACKEND_URL`） |
+| 后端 API | <http://127.0.0.1:8787> | FastAPI；`/api/docs` 有交互式接口文档 |
+| 后端自带的最小验收页 | <http://127.0.0.1:8787/> | 阶段 1 的兜底入口，保留用于"后端能力可脱离前端独立验证" |
+
+> 端口说明：本机 8000 / 8080 / 3100 已被其他项目占用，因此后端固定 **8787**、前端固定 **3311**。
+
+**没有 Key 时**页面顶部会显示"演示模式（mock 上游）"，
 搜图与生成都由本地确定性代码产出占位线稿——链路完全一致，只是画稿不是真实模型画的。
 这一点在界面上、轨迹里、报告里都如实标注，**不冒充真实结果**。
 
@@ -130,10 +145,19 @@ data/
 ## 测试与验收
 
 ```bash
+# 后端
 cd backend
-python -m pytest            # 第一层：144 项，全 mock，离线可跑，约 4 秒
+python -m pytest            # 第一层：198 项，全 mock，离线可跑，约 10 秒
 python scripts/check_artwork.py /path/to/artwork.png   # 画稿硬指标自检
 python scripts/smoke_real.py --query "nike kd 12"      # 第二层：真实模型端到端（无 Key 报“待验”）
+
+# 前端（交付门槛四项 + 自检）
+cd frontend
+npm run lint && npm run typecheck && npm run test && npm run build
+npm run shots               # 四宽度 × 四状态截图 + 横向溢出测量（Playwright）
+npm run console-check       # 失败请求 / Console 错误检查
+npm run e2e                 # 真实后端 + 真实模型的完整闭环（会真实生成，约 ）
+node scripts/detail-check.mjs   # 详情页交互（编辑/删除/翻页）——只操作测试档案
 ```
 
 **第一层（每次改动必跑）**覆盖：日期解析器、状态机（含非法转换）、模型输出解析器（宽容解析 + 强校验）、
@@ -159,6 +183,19 @@ python scripts/smoke_real.py --query "nike kd 12"      # 第二层：真实模�
 ## 项目结构
 
 ```
+├── frontend/                    # 正式前端（Next.js 16 + React 19 + Tailwind 4 + TS strict）
+│   ├── app/                     # 路由与页面（/ = 我的鞋柜，入口即产品）
+│   ├── components/              # ui（Button/Input/Card/Dialog/StatusChip/Alert）+ layout
+│   ├── features/
+│   │   ├── cabinet/             # 鞋柜网格、详情弹窗、useCabinet
+│   │   └── generation/          # 型号输入、校对反馈、源图确认、进度、效果确认、归档表单、useTaskFlow
+│   ├── lib/
+│   │   ├── api/                 # 集中式 API 层（client/errors/types/tasks/archive/system）
+│   │   ├── state/               # 后端状态 → 前端统一状态映射（纯函数 + 单测）
+│   │   └── analytics/           # 本地埋点（事件名定稿，不联网）
+│   ├── tests/                   # Vitest 单测
+│   ├── e2e/closure.mjs          # 真实后端 + 真实模型的闭环 E2E
+│   └── scripts/                 # shots（四宽度×四状态截图）/ console-check / detail-check
 ├── backend/
 │   ├── app/
 │   │   ├── api/v1/          # 路由（tasks / archive / system）
@@ -220,7 +257,8 @@ python scripts/smoke_real.py --query "nike kd 12"      # 第二层：真实模�
 - **鞋型保真 0.62–0.82** 是当前最弱项（阶段 2 第一优先项）。
 - 文搜图返回的是资讯配图（两只鞋合影 / 3⁄4 角度），**搜图路径多数时候不可用**，已由预筛自动转为型号直出；
   根本解法是提高图源质量（电商图库属 PRD 二期；用户上传属 V2 —— 实测也是保真最高的路径）。
-- 手机端只保证"能用"，精致适配在阶段 3。
+- **前端已完成响应式（四宽度终检通过：1280 / 1440 / 768 / 390）**；手机左右滑手势已实现，但需真机人工确认手感。
+- 邀请码登录与额度限制属阶段 4（前端已预留位置，未实现）。
 
 ## 免责声明
 
