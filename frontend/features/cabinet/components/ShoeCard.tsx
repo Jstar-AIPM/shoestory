@@ -15,6 +15,7 @@ export function ShoeCard({ item, className }: { item: ShoeCardItem; className?: 
   return (
     <button
       type="button"
+      data-theme="card-paper"
       className={cn(
         // min-w-0：grid 子项默认 min-width:auto，遇到长型号名会把整列撑爆（手机端表现为页面横向溢出）
         "group block w-full min-w-0 overflow-hidden rounded-[var(--radius-card)] border border-line bg-surface text-left",

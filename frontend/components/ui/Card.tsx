@@ -3,6 +3,8 @@ import { cn } from "@/lib/utils/cn";
 export function Card({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <section
+      /* 卡片永远是"纸"：无论外层是深色墙还是纸底，阅读区保持纸白 */
+      data-theme="card-paper"
       className={cn(
         "rounded-[var(--radius-card)] border border-line bg-surface shadow-[var(--shadow-soft)]",
         className,

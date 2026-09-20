@@ -21,8 +21,8 @@ export function CabinetGrid({
   return (
     <div>
       <div className="flex items-baseline justify-between gap-4">
-        <h2 className="grid-heading font-display text-[19px] font-semibold text-ink">我的鞋柜</h2>
-        <span className="grid-heading-count text-[13px] text-faint">
+        <h2 className="wall-heading text-[19px] font-semibold text-ink">我的鞋柜</h2>
+        <span className="wall-heading text-[13px] text-faint">
           {state === "ready" ? `共 ${items.length} 双` : ""}
         </span>
       </div>
@@ -45,7 +45,7 @@ export function CabinetGrid({
       {/* ② 空：请求成功但确实没有数据 —— 给出下一步动作 */}
       {state === "empty" ? (
         <Card className="mt-4 border-dashed px-6 py-12 text-center shadow-none">
-          <p className="font-display text-[17px] text-ink">鞋柜还是空的</p>
+          <p className="text-[17px] font-semibold text-ink">鞋柜还是空的</p>
           <p className="mx-auto mt-2 max-w-[420px] text-[13.5px] text-muted">
             在上面输入一双你真正拥有的鞋的型号，比如 <code className="text-ink">kd12</code>。
             它会变成一张黑白线稿，成为你鞋柜里的第一行履历。
