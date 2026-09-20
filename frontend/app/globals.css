@@ -105,3 +105,106 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+
+/* ============================================================
+   【方案 B 试点】黑夜画廊（Dark Gallery）
+   来源：设计参考 上 Discord 的设计系统（用户指定参考）
+     --color-blurple #5865f2 / dark-blurple #3442d9 / snow #ffffff
+     --color-not-quite-black #23272a / fog #babcd9
+     展示标题：全大写 + 800 字重 + 收紧字距；完全不用阴影（靠表面分层）
+   做法：用同一套组件，只在这一层作用域内重定义语义变量 ——
+   这样"换肤"不需要改任何组件代码（也验证了设计变量的价值）。
+   ============================================================ */
+[data-theme="gallery"] {
+  --color-ink: #ffffff; /* 深色底上，正文用雪白 */
+  --color-paper: #0e0f2d; /* 页面底色：深蓝紫 */
+  --color-surface: #1c1f4a; /* 卡片表面（分层代替阴影） */
+  --color-line: #2f336e; /* 分隔线 */
+  --color-muted: #babcd9; /* 次要文字：fog */
+  --color-faint: #8b8fc7;
+
+  --color-accent: #a5adff; /* 时间等档案信息：blurple 的浅色版，深底可读 */
+  --color-success: #57f287;
+  --color-warn: #faa220;
+  --color-danger: #de2761;
+
+  --radius-card: 10px;
+  --radius-btn: 8px;
+
+  background: var(--color-paper);
+  color: var(--color-ink);
+  min-height: 100vh;
+}
+
+/* Discord 式展示标题：全大写、800 字重、收紧字距（中文无大小写，靠字距与字重表达） */
+[data-theme="gallery"] .display-strong {
+  font-family: var(--font-sans);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+[data-theme="gallery"] .display-upper {
+  font-family: var(--font-sans);
+  text-transform: uppercase;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.05;
+}
+
+/* 深色底上的主按钮：Discord 的经典做法 —— 白雪按钮 + 近黑字 */
+[data-theme="gallery"] .btn-snow {
+  background: #ffffff;
+  color: #23272a;
+  border-color: #ffffff;
+}
+
+[data-theme="gallery"] .btn-snow:hover {
+  background: #e9e9f5;
+  border-color: #e9e9f5;
+}
+
+[data-theme="gallery"] .btn-blurple {
+  background: #5865f2;
+  color: #ffffff;
+  border-color: #5865f2;
+}
+
+[data-theme="gallery"] .btn-blurple:hover {
+  background: #3442d9;
+  border-color: #3442d9;
+}
+
+/* 深色墙 + 白卡：展示区用深色烘托画稿，阅读区（卡片内）保持纸白护眼 */
+[data-theme="card-paper"] {
+  --color-ink: #111111;
+  --color-paper: #ffffff;
+  --color-surface: #ffffff;
+  --color-line: #e6e3dc;
+  --color-muted: #6b6b66;
+  --color-faint: #a3a29c;
+  --color-accent: #5865f2; /* 白卡上的档案信息：blurple（比暖褐更现代且可读） */
+  --radius-card: 10px;
+}
+
+/* 白卡作用域内的"墙面文字"：标题在墙上，不该跟着卡片变深色 */
+[data-theme="card-paper"] .grid-heading {
+  color: #ffffff;
+}
+
+[data-theme="card-paper"] .grid-heading-count {
+  color: #8b8fc7;
+}
+
+/* 画稿卡：在深色底上像装裱好的作品（白卡 + 细边框，hover 用 blurple） */
+[data-theme="gallery"] .artwork-frame {
+  border-radius: var(--radius-card);
+  border: 1px solid var(--color-line);
+  overflow: hidden;
+  background: #ffffff;
+  transition: border-color 0.15s ease;
+}
+
+[data-theme="gallery"] .artwork-frame:hover {
+  border-color: #5865f2;
+}

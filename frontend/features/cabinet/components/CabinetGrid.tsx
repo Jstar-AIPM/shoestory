@@ -21,8 +21,8 @@ export function CabinetGrid({
   return (
     <div>
       <div className="flex items-baseline justify-between gap-4">
-        <h2 className="font-display text-[19px] font-semibold text-ink">我的鞋柜</h2>
-        <span className="text-[13px] text-faint">
+        <h2 className="grid-heading font-display text-[19px] font-semibold text-ink">我的鞋柜</h2>
+        <span className="grid-heading-count text-[13px] text-faint">
           {state === "ready" ? `共 ${items.length} 双` : ""}
         </span>
       </div>
@@ -44,7 +44,7 @@ export function CabinetGrid({
 
       {/* ② 空：请求成功但确实没有数据 —— 给出下一步动作 */}
       {state === "empty" ? (
-        <Card className="mt-4 border-dashed bg-transparent px-6 py-12 text-center shadow-none">
+        <Card className="mt-4 border-dashed px-6 py-12 text-center shadow-none">
           <p className="font-display text-[17px] text-ink">鞋柜还是空的</p>
           <p className="mx-auto mt-2 max-w-[420px] text-[13.5px] text-muted">
             在上面输入一双你真正拥有的鞋的型号，比如 <code className="text-ink">kd12</code>。
@@ -55,7 +55,7 @@ export function CabinetGrid({
 
       {/* ③ 失败：说明发生了什么 + 是否可重试 */}
       {state === "failed" ? (
-        <Card className="mt-4 border-danger/25 bg-danger/[0.03] px-6 py-10 text-center shadow-none">
+        <Card className="mt-4 border-danger/25 px-6 py-10 text-center shadow-none">
           <p className="text-[15px] text-ink">鞋柜读取失败，正在重试</p>
           <p className="mt-2 text-[13px] text-muted">如果一直失败，请确认后端服务是否在运行。</p>
           <button
