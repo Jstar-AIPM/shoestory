@@ -112,15 +112,30 @@ def test_image_search_empty_can_fall_back_to_manual_source(
     assert final["quality"]["score"] >= 0.80
 
 
-def test_manual_source_disabled_in_prod(client_factory, tmp_path) -> None:
-    with client_factory(env="prod", enable_manual_source=False) as prod_client:
+def test_prod_requires_login_before_anything_else(client_factory) -> None:
+    """prod 下未登录的请求一律 401（邀请码登录是访问前提）。"""
+    with client_factory(env="prod") as prod_client:
+        response = prod_client.post("/api/v1/tasks", json={"query": "kd12"})
+        assert response.status_code == 401
+        assert response.json()["error"]["code"] == "AUTH_REQUIRED"
+
+
+def test_manual_source_disabled_in_prod_when_logged_in(client_factory) -> None:
+    """已登录的 prod 环境下，"手动指定源图"仍然关闭（V1 不做上传）。"""
+    with client_factory(env="prod", enable_manual_source=False, admin_code="ADMINLOCAL") as prod_client:
+        login = prod_client.post("/api/v1/auth/login", json={"code": "ADMINLOCAL"})
+        assert login.status_code == 200, login.text
+
         prod_client.app.state.container.providers.search = EmptySearchProvider()
-        task = create_task(prod_client, "kd12")
-        response = prod_client.post(
-            f"/api/v1/tasks/{task['task_id']}/source", json={"manual_path": "./tmp/x.png"}
+        response = prod_client.post("/api/v1/tasks", json={"query": "kd12"})
+        assert response.status_code == 201, response.text
+        task_id = response.json()["task_id"]
+
+        blocked = prod_client.post(
+            f"/api/v1/tasks/{task_id}/source", json={"manual_path": "./tmp/x.png"}
         )
-        assert response.status_code == 403
-        assert response.json()["error"]["code"] == "MANUAL_SOURCE_DISABLED"
+        assert blocked.status_code == 403
+        assert blocked.json()["error"]["code"] == "MANUAL_SOURCE_DISABLED"
 
 
 def test_regenerate_keeps_previous_artworks(client: TestClient) -> None:

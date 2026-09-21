@@ -148,3 +148,41 @@ export type HealthResponse = {
   missing_config: string[];
   notes: string[];
 };
+
+// ---------------- 鉴权与邀请码（阶段 4） ----------------
+export type LoginOut = {
+  owner_id: string;
+  role: "guest" | "admin";
+  expires_at: string;
+  code_expires_at: string | null;
+  remaining: number | null;
+  message: string;
+};
+
+export type MeOut = {
+  authenticated: boolean;
+  owner_id: string | null;
+  role: "guest" | "admin" | null;
+  auth_required: boolean;
+  remaining: number | null;
+  can_generate: boolean;
+  code_expires_at: string | null;
+  message: string;
+};
+
+export type CodeInfo = {
+  code: string;
+  owner_id: string;
+  role: "guest" | "admin";
+  max_uses: number | null;
+  used_count: number;
+  remaining: number | null;
+  expires_at: string | null;
+  status: "active" | "revoked";
+  note: string;
+  created_at: string;
+  last_used_at: string | null;
+  expired: boolean;
+  exhausted: boolean;
+  archived_count: number;
+};

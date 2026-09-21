@@ -42,6 +42,7 @@ from app.services.tools.search_shoe_image import (
     search_shoe_image,
 )
 from app.services.workflow import hooks
+from app.services.auth.quota import consume_generation
 from app.services.workflow.journal import TraceWriter
 from app.services.workflow.runner import SOURCE_FILENAME
 from app.services.workflow.state_machine import transit
@@ -117,6 +118,9 @@ def create_task(
     container = get_container(request)
     settings = container.settings
     style = container.styles.get(payload.style_id or settings.style_id)
+
+    # 额度：1 次生成 = 扣 1 次（本地开发未启用登录时不计数）
+    consume_generation(settings, container.invite_store, owner_id)
 
     record = TaskRecord(
         task_id=new_task_id(),
@@ -352,8 +356,14 @@ def regenerate(
     record = container.task_store.get(owner_id, task_id)
     if record.state not in {S.AWAITING_EFFECT_CONFIRM, S.FAILED, S.INTERRUPTED}:
         raise AppError(ErrorCode.INVALID_STATE, detail={"state": record.state.value})
-    if not record.source.source_path:
+    # 型号直出（model_only）本来就没有标准画布 —— 不能因此拒绝"重新生成"
+    if not record.source.source_path and not record.source.use_model_only:
         raise AppError(ErrorCode.INVALID_STATE, detail={"reason": "缺少源图，请重新输入"})
+
+    # 手动"重新生成"同样消耗 1 次额度（质检自动重试不计数）
+    consume_generation(
+        container.settings, container.invite_store, owner_id
+    )
 
     transit(record, S.GENERATING, event="user_regenerate", detail={"note": payload.note or ""})
     record.progress = {"step": "generating", "label": "重新生成中", "percent": 45}

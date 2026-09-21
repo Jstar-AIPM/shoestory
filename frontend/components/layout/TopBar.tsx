@@ -1,11 +1,10 @@
 /**
- * 顶栏：品牌 + 运行模式徽标 + 「正在生成」横幅
+ * 顶栏：品牌 + 运行模式徽标 + 额度/身份 + 「正在生成」横幅
  *
- * 说明（对应前端适配声明 4.3）：`taskId` 与 `mode` 都由页面按真实数据传入，
- * 这里不做任何状态推测；没有进行中任务时横幅不渲染。
+ * 说明：`taskId`、`mode`、`quota` 都由页面按真实数据传入，这里不做任何状态推测。
  */
 import { PageShell } from "@/components/layout/PageShell";
-import { cn } from "@/lib/utils/cn";
+import { StatusChip } from "@/components/ui/StatusChip";
 
 type Mode = "real" | "mock" | "offline" | "unknown";
 
@@ -16,44 +15,69 @@ const MODE_LABEL: Record<Mode, string> = {
   unknown: "状态检查中",
 };
 
-const MODE_STYLE: Record<Mode, string> = {
-  real: "border-success/25 bg-success/[0.06] text-success",
-  mock: "border-warn/30 bg-warn/[0.08] text-warn",
-  offline: "border-danger/25 bg-danger/[0.06] text-danger",
-  unknown: "border-line bg-black/[0.03] text-faint",
+export type QuotaInfo = {
+  authRequired: boolean;
+  role: "guest" | "admin" | null;
+  remaining: number | null;
+  canGenerate: boolean;
 };
 
-export function TopBar({ mode, taskLabel }: { mode: Mode; taskLabel?: string | null }) {
+export function TopBar({
+  mode,
+  taskLabel,
+  quota,
+  onLogout,
+}: {
+  mode: Mode;
+  taskLabel?: string | null;
+  quota?: QuotaInfo | null;
+  onLogout?: () => void;
+}) {
+  const modeTone = mode === "real" ? "success" : mode === "mock" ? "warn" : mode === "offline" ? "danger" : "neutral";
+
   return (
     <header className="sticky top-0 z-20 border-b border-line bg-paper/95 backdrop-blur-sm">
       <PageShell className="!py-3.5">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-baseline gap-2.5">
-            <span className="font-display text-[22px] font-semibold tracking-[0.18em] text-ink">
-              履历
-            </span>
-            <span className="hidden text-[13px] text-faint sm:inline">
-              履（鞋）＋ 历（经历）：一双鞋，就是履历上的一行
-            </span>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-baseline gap-3">
+            <span className="text-[22px] font-extrabold tracking-wide text-white">履历</span>
+            <span className="hidden text-[12.5px] text-muted sm:inline">履（鞋）＋ 历（经历）</span>
           </div>
-          <span
-            className={cn(
-              "shrink-0 rounded-full border px-2.5 py-1 text-[12px] leading-none",
-              MODE_STYLE[mode],
-            )}
-            title="上游运行模式"
-          >
-            {MODE_LABEL[mode]}
-          </span>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {quota?.authRequired ? (
+              quota.role === "admin" ? (
+                <StatusChip tone="progress">管理员 · 不限次</StatusChip>
+              ) : (
+                <StatusChip tone={quota.canGenerate ? "neutral" : "warn"}>
+                  {quota.canGenerate ? `还可生成 ${quota.remaining ?? 0} 次` : "生成次数已用完"}
+                </StatusChip>
+              )
+            ) : null}
+            {quota?.role === "admin" ? (
+              <a
+                href="/admin"
+                className="rounded-full border border-line bg-white/5 px-3 py-1 text-[12.5px] text-muted hover:text-ink"
+              >
+                管理员
+              </a>
+            ) : null}
+            <StatusChip tone={modeTone as "success" | "warn" | "danger" | "neutral"}>{MODE_LABEL[mode]}</StatusChip>
+            {quota?.authRequired && onLogout ? (
+              <button
+                onClick={onLogout}
+                className="rounded-full border border-line bg-white/5 px-3 py-1 text-[12.5px] text-muted hover:text-ink"
+              >
+                退出
+              </button>
+            ) : null}
+          </div>
         </div>
 
         {taskLabel ? (
           <div className="mt-3 flex items-center gap-2 rounded-[var(--radius-btn)] border border-line bg-surface px-3 py-2">
-            <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-ink" />
+            <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-[#57f287]" />
             <p className="truncate text-[13px] text-muted">{taskLabel}</p>
-            <button className="ml-auto shrink-0 text-[13px] text-ink underline underline-offset-4">
-              回到进度
-            </button>
           </div>
         ) : null}
       </PageShell>

@@ -8,6 +8,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from app.core.config import STYLES_DIR, Settings
+from app.services.auth.invite_store import InviteStore
+from app.services.auth.session import SessionSigner
 from app.services.providers.base import ProviderBundle, build_providers
 from app.services.storage.archive_store import ArchiveStore
 from app.services.storage.asset_store import AssetStore
@@ -27,6 +29,8 @@ class Container:
     task_store: TaskStore
     asset_store: AssetStore
     runner: PipelineRunner
+    invite_store: InviteStore
+    session_signer: SessionSigner
     notes: list[str] = field(default_factory=list)
 
     @property
@@ -42,6 +46,8 @@ def build_container(settings: Settings | None = None) -> Container:
     archive_store = ArchiveStore(backend)
     task_store = TaskStore(backend)
     asset_store = AssetStore(backend)
+    invite_store = InviteStore(backend, settings)
+    session_signer = SessionSigner(backend, settings)
     runner = PipelineRunner(
         settings=settings,
         backend=backend,
@@ -64,6 +70,8 @@ def build_container(settings: Settings | None = None) -> Container:
         notes.append("搜图走 mock：未配置豆包搜索凭证")
     if settings.storage_provider != "local":
         notes.append(f"存储后端：{settings.storage_provider}")
+    if settings.auth_required:
+        notes.append("已启用邀请码登录：未持有效会话的请求将被拒绝（401）")
     return Container(
         settings=settings,
         backend=backend,
@@ -73,5 +81,7 @@ def build_container(settings: Settings | None = None) -> Container:
         task_store=task_store,
         asset_store=asset_store,
         runner=runner,
+        invite_store=invite_store,
+        session_signer=session_signer,
         notes=notes,
     )

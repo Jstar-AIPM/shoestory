@@ -18,7 +18,7 @@ import type { ArchiveListResponse, ArchiveListItem } from "@/lib/api/types";
 
 export type CabinetState = "loading" | "empty" | "ready" | "failed";
 
-export function useCabinet() {
+export function useCabinet({ enabled = true }: { enabled?: boolean } = {}) {
   const [state, setState] = useState<CabinetState>("loading");
   const [items, setItems] = useState<ArchiveListItem[]>([]);
   const [warning, setWarning] = useState<string | null>(null);
@@ -56,6 +56,8 @@ export function useCabinet() {
   }, [reload]);
 
   useEffect(() => {
+    // 未登录（或还在校验身份）时不拉取：避免用 401 的失败结果污染界面
+    if (!enabled) return;
     let cancelled = false;
     listArchive("date")
       .then((data) => {
@@ -67,7 +69,7 @@ export function useCabinet() {
     return () => {
       cancelled = true;
     };
-  }, [applyFailure, applySuccess]);
+  }, [enabled, applyFailure, applySuccess]);
 
   return { state, items, warning, error, reload, retry };
 }

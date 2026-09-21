@@ -38,6 +38,12 @@ class ErrorCode(str, Enum):
     STORAGE_CORRUPT = "STORAGE_CORRUPT"
     STORAGE_WRITE_FAILED = "STORAGE_WRITE_FAILED"
     SCHEMA_TOO_NEW = "SCHEMA_TOO_NEW"
+    # 鉴权 / 额度（阶段 4）
+    AUTH_REQUIRED = "AUTH_REQUIRED"
+    CODE_INVALID = "CODE_INVALID"
+    CODE_EXPIRED = "CODE_EXPIRED"
+    QUOTA_EXCEEDED = "QUOTA_EXCEEDED"
+    FORBIDDEN = "FORBIDDEN"
     # 兜底
     INTERNAL_ERROR = "INTERNAL_ERROR"
 
@@ -71,6 +77,11 @@ _DEFAULT_STATUS: dict[ErrorCode, int] = {
     ErrorCode.STORAGE_CORRUPT: 500,
     ErrorCode.STORAGE_WRITE_FAILED: 507,
     ErrorCode.SCHEMA_TOO_NEW: 409,
+    ErrorCode.AUTH_REQUIRED: 401,
+    ErrorCode.CODE_INVALID: 401,
+    ErrorCode.CODE_EXPIRED: 410,
+    ErrorCode.QUOTA_EXCEEDED: 429,
+    ErrorCode.FORBIDDEN: 403,
     ErrorCode.INTERNAL_ERROR: 500,
 }
 
@@ -103,6 +114,11 @@ _MESSAGE: dict[ErrorCode, str] = {
     ErrorCode.STORAGE_CORRUPT: "本地档案文件损坏，已备份原文件并以空档案继续，请告知 AI 处理。",
     ErrorCode.STORAGE_WRITE_FAILED: "保存失败（存储不可写），请检查磁盘空间或权限。",
     ErrorCode.SCHEMA_TOO_NEW: "数据版本比当前程序新，请升级程序后再操作。",
+    ErrorCode.AUTH_REQUIRED: "请先用邀请码进入。",
+    ErrorCode.CODE_INVALID: "邀请码不对，请检查后重新输入。",
+    ErrorCode.CODE_EXPIRED: "这个邀请码已过期。已归档的鞋柜仍然可以查看。",
+    ErrorCode.QUOTA_EXCEEDED: "这个邀请码的生成次数已用完。已归档的鞋柜仍然可以查看。",
+    ErrorCode.FORBIDDEN: "没有权限执行这个操作。",
     ErrorCode.INTERNAL_ERROR: "服务出了点问题，请把当前页面截图发给 AI。",
 }
 

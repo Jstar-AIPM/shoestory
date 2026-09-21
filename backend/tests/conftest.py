@@ -87,9 +87,13 @@ def client_factory(tmp_path: Path):
             "mock_quality": "good",
             "allowed_source_dirs": str(allowed),
             "app_log_level": "WARNING",
+            # 阶段 4：默认关闭强制登录，便于既有用例；需要鉴权的用例显式传 env="prod"
         }
         base.update(overrides)
-        return TestClient(create_app(Settings(**base)))
+        settings = Settings(**base)
+        # prod 模式下会话 Cookie 带 Secure（安全要求）→ 测试必须走 https 才会被回传
+        scheme = "https" if settings.env == "prod" else "http"
+        return TestClient(create_app(settings), base_url=f"{scheme}://testserver")
 
     return _make
 

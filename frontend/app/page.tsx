@@ -11,13 +11,14 @@
  *   型号输入 → 校对 → 源图确认（三种形态）→ 生成进度 → 效果确认 → 时间/故事 → 归档 → 网格回显
  *   另含：刷新/离开后按 ?task= 恢复真实状态、轮询退避、页面不可见暂停、防重复提交。
  */
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { PageShell } from "@/components/layout/PageShell";
+import { TopBar, type QuotaInfo } from "@/components/layout/TopBar";
 import { Alert } from "@/components/ui/Alert";
 import { Card } from "@/components/ui/Card";
 import { Dialog, DialogCloseButton, DialogContent, DialogTitle } from "@/components/ui/Dialog";
-import { StatusChip } from "@/components/ui/StatusChip";
+import { LoginScreen } from "@/features/auth/components/LoginScreen";
 import { useCabinet } from "@/features/cabinet/hooks/useCabinet";
 import { ShoeDetailDialog } from "@/features/cabinet/components/ShoeDetailDialog";
 import { CabinetGrid } from "@/features/cabinet/components/CabinetGrid";
@@ -28,20 +29,65 @@ import { ModelInput } from "@/features/generation/components/ModelInput";
 import { ResolveFeedback } from "@/features/generation/components/ResolveFeedback";
 import { SourceConfirm } from "@/features/generation/components/SourceConfirm";
 import { useTaskFlow } from "@/features/generation/hooks/useTaskFlow";
+import { logout as logoutApi, me as fetchMe } from "@/lib/api/auth";
 import { getHealth } from "@/lib/api/system";
 import { track } from "@/lib/analytics";
-import type { HealthResponse } from "@/lib/api/types";
+import type { HealthResponse, MeOut } from "@/lib/api/types";
 import { toUiState } from "@/lib/state/taskState";
 
 export default function CabinetPage() {
-  const cabinet = useCabinet();
-  const flow = useTaskFlow(() => void cabinet.reload());
-
   const [health, setHealth] = useState<HealthResponse | null>(null);
+  const [identity, setIdentity] = useState<MeOut | null>(null);
+  const [identityChecked, setIdentityChecked] = useState(false);
+
+  // 是否需要登录：据此决定"要不要拉数据"（未登录时绝不发数据请求，避免 401 污染界面）
+  const needLogin = Boolean(identity?.auth_required && !identity?.authenticated);
+  const dataEnabled = identityChecked && !needLogin;
+
+  const cabinet = useCabinet({ enabled: dataEnabled });
+  const flow = useTaskFlow(() => void cabinet.reload(), { enabled: dataEnabled });
   const [archiving, setArchiving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   /** 详情弹窗：只保存"当前打开的 shoe_id"，详情数据由弹窗自己按需拉取 */
   const [detailShoeId, setDetailShoeId] = useState<string | null>(null);
+
+  const loadIdentity = useCallback(async () => {
+    try {
+      setIdentity(await fetchMe());
+    } catch {
+      setIdentity(null);
+    } finally {
+      setIdentityChecked(true);
+    }
+  }, []);
+
+  // 初始鉴权：订阅 Promise 回调（effect 只做"订阅"这件事）
+  useEffect(() => {
+    let cancelled = false;
+    fetchMe()
+      .then((data) => {
+        if (!cancelled) setIdentity(data);
+      })
+      .catch(() => {
+        if (!cancelled) setIdentity(null);
+      })
+      .finally(() => {
+        if (!cancelled) setIdentityChecked(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await logoutApi();
+    } catch {
+      /* 退出请求失败也让前端回到登录页（服务端 cookie 无论如何会过期） */
+    }
+    setIdentity(null);
+    await loadIdentity();
+  }, [loadIdentity]);
 
   useEffect(() => {
     getHealth()
@@ -60,6 +106,16 @@ export default function CabinetPage() {
     const timer = setTimeout(() => setToast(null), 4000);
     return () => clearTimeout(timer);
   }, [toast]);
+
+  const canGenerate = identity?.can_generate ?? true;
+  const quota: QuotaInfo | null = identity
+    ? {
+        authRequired: identity.auth_required,
+        role: identity.role,
+        remaining: identity.remaining,
+        canGenerate,
+      }
+    : null;
 
   const task = flow.task;
   const ui = toUiState(task?.state);
@@ -80,25 +136,28 @@ export default function CabinetPage() {
   const mode = health?.providers.mode ?? (health ? "real" : "unknown");
   const mockMode = health?.flags.mock_mode ?? false;
 
+  if (!identityChecked) {
+    return (
+      <div data-theme="wall" className="wall-gradient flex min-h-screen items-center justify-center">
+        <p className="text-[14px] text-muted">正在检查访问权限…</p>
+      </div>
+    );
+  }
+
+  if (needLogin) {
+    return <LoginScreen onSuccess={() => void loadIdentity()} />;
+  }
+
   return (
     <div data-theme="wall">
       {/* 顶栏 + Hero：同一层渐变，避免接缝 */}
       <div className="wall-gradient w-full">
-        <PageShell className="!py-3.5">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-baseline gap-3">
-              <span className="text-[22px] font-extrabold tracking-wide text-white">履历</span>
-              <span className="hidden text-[12.5px] text-muted sm:inline">履（鞋）＋ 历（经历）</span>
-            </div>
-            {mockMode ? (
-              <StatusChip tone="warn">演示模式（mock 上游）</StatusChip>
-            ) : mode === "real" ? (
-              <StatusChip tone="success">真实模型</StatusChip>
-            ) : (
-              <StatusChip tone="danger">后端未连接</StatusChip>
-            )}
-          </div>
-        </PageShell>
+        <TopBar
+          mode={mockMode ? "mock" : mode === "real" ? "real" : "offline"}
+          taskLabel={task && (ui === "running" || ui === "waiting_user") ? task.progress?.label ?? null : null}
+          quota={quota}
+          onLogout={handleLogout}
+        />
 
         <PageShell className="!pt-10 !pb-14 sm:!pt-14 sm:!pb-20">
           <p className="display-upper text-[13px] text-accent">MY SHOE CABINET</p>
@@ -110,10 +169,16 @@ export default function CabinetPage() {
           <p className="mt-5 max-w-[520px] text-[15px] leading-relaxed text-muted">
             输入鞋款型号，它会变成一张黑白线稿，收进你的鞋柜。线下穿旧的鞋，在这里留下痕迹。
           </p>
+          {!canGenerate ? (
+            <div className="mt-6 max-w-[640px] rounded-[var(--radius-btn)] border border-warn/30 bg-warn/[0.08] px-4 py-3 text-[13px] leading-relaxed text-ink">
+              {identity?.message ?? "邀请码的生成次数已用完。"}
+              已归档的鞋柜仍可正常查看、编辑与删除。
+            </div>
+          ) : null}
           <div className="mt-9 max-w-[640px]">
             <ModelInput
               submitting={flow.submitting}
-              disabled={ui === "running" || ui === "waiting_user"}
+              disabled={ui === "running" || ui === "waiting_user" || !canGenerate}
               onSubmit={(query) => {
                 track("generation_submitted", { query_len: query.length });
                 void flow.submit(query);

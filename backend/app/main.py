@@ -14,7 +14,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.api.v1 import admin as admin_router
 from app.api.v1 import archive as archive_router
+from app.api.v1 import auth as auth_router
 from app.api.v1 import system as system_router
 from app.api.v1 import tasks as tasks_router
 from app.core.config import Settings
@@ -42,6 +44,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI):
         # 启动恢复：跑了一半的任务标记为 interrupted（人工确认点保留）
         marked = recover_on_startup(container.task_store)
+        # 首次启动把环境变量里的初始邀请码落到存储（已存在则跳过）
+        bootstrapped = container.invite_store.bootstrap_from_env()
+        if bootstrapped:
+            logger.info("已从环境变量初始化 %d 个邀请码（不打印码本身）", len(bootstrapped))
         log_event(
             logger,
             "startup",
@@ -96,7 +102,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(system_router.router, prefix="/api/v1")
     app.include_router(tasks_router.router, prefix="/api/v1")
     app.include_router(archive_router.router, prefix="/api/v1")
-    # 阶段 4：app.include_router(auth_router.router, prefix="/api/v1")  # 邀请码登录
+    app.include_router(auth_router.router, prefix="/api/v1")
+    app.include_router(admin_router.router, prefix="/api/v1")
 
     # ---------------- 最小验收界面（单 HTML，无构建） ----------------
     if STATIC_DIR.is_dir():

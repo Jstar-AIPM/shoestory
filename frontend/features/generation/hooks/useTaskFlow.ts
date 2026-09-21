@@ -34,13 +34,13 @@ function syncUrl(taskId: string | null) {
 
 export type TaskFlow = ReturnType<typeof useTaskFlow>;
 
-export function useTaskFlow(onArchived?: (shoeId: string) => void) {
+export function useTaskFlow(onArchived?: (shoeId: string) => void, options: { enabled?: boolean } = {}) {
+  const enabled = options.enabled ?? true;
   const [taskId, setTaskId] = useState<string | null>(null);
   const [task, setTask] = useState<TaskOut | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<AppError | null>(null);
-  const [restoring, setRestoring] = useState(true);
 
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const failuresRef = useRef(0);
@@ -177,8 +177,9 @@ export function useTaskFlow(onArchived?: (shoeId: string) => void) {
     failuresRef.current = 0;
   }, [remember, stopPolling]);
 
-  /** 启动/恢复：URL 优先，其次 localStorage */
+  /** 启动/恢复：URL 优先，其次 localStorage（仅在已登录时执行） */
   useEffect(() => {
+    if (!enabled) return;
     let cancelled = false;
     const restore = async () => {
       let id = readTaskIdFromUrl();
@@ -189,10 +190,7 @@ export function useTaskFlow(onArchived?: (shoeId: string) => void) {
           id = null;
         }
       }
-      if (!id) {
-        setRestoring(false);
-        return;
-      }
+      if (!id) return; // 没有待恢复的任务：什么都不用做（restoring 为派生值）
       try {
         const current = await getTask(id);
         if (cancelled) return;
@@ -200,16 +198,14 @@ export function useTaskFlow(onArchived?: (shoeId: string) => void) {
         remember(id);
       } catch {
         // 任务不存在（被清理/换设备）→ 清掉脏记录，不冒充失败
-        remember(null);
-      } finally {
-        if (!cancelled) setRestoring(false);
+        if (!cancelled) remember(null);
       }
     };
     void restore();
     return () => {
       cancelled = true;
     };
-  }, [remember]);
+  }, [enabled, remember]);
 
   /** 轮询：只在"运行中"状态下进行 */
   useEffect(() => {
@@ -261,6 +257,9 @@ export function useTaskFlow(onArchived?: (shoeId: string) => void) {
   }, [applyError, stopPolling, task, taskId]);
 
   useEffect(() => stopPolling, [stopPolling]);
+
+  // 派生值：不需要额外状态（避免 effect 里同步 setState）
+  const restoring = enabled && !task && Boolean(readTaskIdFromUrl());
 
   return {
     taskId,

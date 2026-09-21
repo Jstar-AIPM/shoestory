@@ -47,6 +47,16 @@ class Settings(BaseSettings):
     admin_code: str = ""
     global_daily_generate_limit: int | None = None
     dev_owner_id: str = "owner"
+    #: 会话签名密钥；留空时首次启动自动生成并存到存储（system/secret.json）
+    session_secret: str = ""
+    #: 会话有效期（天）：额度用完/过期后仍可查看，因此会话长于邀请码有效期
+    session_ttl_days: int = 30
+    #: 普通邀请码：最多生成次数（1 次 = 1 次点击生成，手动重新生成也算）
+    invite_code_max_uses: int = 20
+    #: 普通邀请码：有效期（天）
+    invite_code_ttl_days: int = 30
+    #: 是否强制登录（prod 一律强制；dev 可用 true 打开以便本地测试）
+    force_auth: bool = False
 
     # ---------- 火山方舟 ----------
     ark_api_key: str = ""
@@ -191,6 +201,11 @@ class Settings(BaseSettings):
     @property
     def search_credentials_present(self) -> bool:
         return bool(self.volc_search_api_key or (self.volc_accesskey and self.volc_secretkey))
+
+    @property
+    def auth_required(self) -> bool:
+        """是否需要登录：prod 一律需要；dev 可用 FORCE_AUTH=true 打开以便测试。"""
+        return self.env == "prod" or self.force_auth
 
     def redaction_values(self) -> list[str]:
         """需要从日志中抹掉的敏感值。"""
