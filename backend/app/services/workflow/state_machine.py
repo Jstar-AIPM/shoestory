@@ -19,7 +19,15 @@ TRANSITIONS: dict[TaskState, set[TaskState]] = {
     S.RESOLVING: {
         S.MODEL_NOT_FOUND,
         S.RESOLVE_FAILED,
+        S.SEARCHING_SOURCE,
         S.AWAITING_SOURCE_CONFIRM,
+        S.INTERRUPTED,
+        S.CANCELLED,
+    },
+    # 搜图 + 预筛在后台跑（线上实测 ~58s）：完成后进入人工确认点，失败则落 resolve_failed
+    S.SEARCHING_SOURCE: {
+        S.AWAITING_SOURCE_CONFIRM,
+        S.RESOLVE_FAILED,
         S.INTERRUPTED,
         S.CANCELLED,
     },

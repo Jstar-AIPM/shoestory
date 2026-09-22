@@ -1,0 +1,23 @@
+# veFaaS 打包排除清单（backend/ 是部署目录；此文件确保测试与本地数据不进代码包）
+#
+# ⚠️ 事故复盘（2026-09-21）：这里曾写过一行 `*.md`，把 `app/services/prompts/*.md`
+# 也一起排除了 —— 线上模型拿不到字段规范，生成直接失败（LLM_OUTPUT_INVALID，
+# 表现为「点了生成没反应」）。**Prompt 是运行时必需资源，不能按“文档”一概排除。**
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+data/
+tmp/
+.vefaas/
+tests/
+scripts/
+.DS_Store
+
+# 只排除确实不需要进包的文档；app/ 下的任何资源都不排除
+/README.md
+/*.md

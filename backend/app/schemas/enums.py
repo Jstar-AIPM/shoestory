@@ -13,6 +13,8 @@ class TaskState(str, Enum):
 
     CREATED = "created"
     RESOLVING = "resolving"
+    #: 型号已校对、正在文搜图 + 视觉预筛（线上实测约 58s，因此必在后台跑，不能占着请求）
+    SEARCHING_SOURCE = "searching_source"
     MODEL_NOT_FOUND = "model_not_found"
     RESOLVE_FAILED = "resolve_failed"
     AWAITING_SOURCE_CONFIRM = "awaiting_source_confirm"

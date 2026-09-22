@@ -21,6 +21,7 @@ MAX_SUPPORTED_SCHEMA = 1
 #: 这些状态表示“正在跑”，进程重启后统一置为 interrupted（人工确认点不在其中）
 INTERRUPTIBLE_STATES = {
     TaskState.RESOLVING,
+    TaskState.SEARCHING_SOURCE,
     TaskState.PREPROCESSING,
     TaskState.GENERATING,
     TaskState.REFINING,

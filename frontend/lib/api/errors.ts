@@ -28,7 +28,19 @@ const RETRYABLE_CODES = new Set([
 
 export const NETWORK_ERROR: AppError = {
   code: "NETWORK_ERROR",
-  userMessage: "连不上后端服务，请确认后端是否已启动。",
+  userMessage: "网络连接中断了，请检查网络后重试。",
+  retryable: true,
+  status: 0,
+};
+
+/**
+ * 请求超时（线上实测：veFaaS 弹性实例空闲后会进入冷启动，
+ * 与网关之间那条长连接可能先失效，导致"第一个请求可能要等很久"）。
+ * 文案必须让用户知道"等几秒重试就好"，而不是以为产品坏了。
+ */
+export const TIMEOUT_ERROR: AppError = {
+  code: "REQUEST_TIMEOUT",
+  userMessage: "服务正在启动（云端实例休眠后首次访问会慢一点），稍等几秒再点一次就好。",
   retryable: true,
   status: 0,
 };

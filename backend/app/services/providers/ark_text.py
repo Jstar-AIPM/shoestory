@@ -6,10 +6,11 @@ Prompt 从 `prompts/resolve_model.md` 读取（手册 [A]：Prompt 独立管理�
 
 from __future__ import annotations
 
-from app.core.config import PROMPTS_DIR, Settings
+from app.core.config import Settings
 from app.core.errors import AppError, ErrorCode
 from app.schemas.llm import ModelResolveOut
 from app.services.parsers import validate_llm_output
+from app.services.prompts.loader import load_prompt_text
 from app.services.providers.ark_common import ArkClient
 from app.services.providers.base import CallRecorder, timer
 
@@ -28,11 +29,8 @@ class ArkModelResolver:
 
     @staticmethod
     def _load_prompt() -> str:
-        path = PROMPTS_DIR / "resolve_model.md"
-        try:
-            return path.read_text(encoding="utf-8")
-        except OSError:
-            return SYSTEM_FALLBACK
+        # 缺文件时会记 ERROR 并进入健康检查的 missing_prompts（线上事故复盘：不许静默降级）
+        return load_prompt_text("resolve_model.md", SYSTEM_FALLBACK)
 
     def resolve(self, raw_query: str, known_brands: list[str], recorder: CallRecorder) -> ModelResolveOut:
         user = (

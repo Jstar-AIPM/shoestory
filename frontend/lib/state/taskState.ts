@@ -20,6 +20,8 @@ export type UiTaskState =
 const MAP: Record<TaskState, UiTaskState> = {
   created: "submitting",
   resolving: "running",
+  // 文搜图 + 视觉预筛在后台跑（线上约 58s）：对用户就是"正在处理"，必须继续轮询
+  searching_source: "running",
   model_not_found: "waiting_user",
   resolve_failed: "waiting_user",
   awaiting_source_confirm: "waiting_user",

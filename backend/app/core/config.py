@@ -115,6 +115,16 @@ class Settings(BaseSettings):
     #: 型号置信度 >= 此值 -> 源图确认只展示 1 张推荐图（“就是这双”）；低于此值才展开多张让用户挑
     source_confirm_confidence: float = 0.75
 
+    # ---------- 自预热（省掉预留实例后的折中，见 services/warmup.py 的取舍说明）----------
+    #: 是否开启：线上为 true；本地开发不用（本地无网关长连接问题）
+    enable_warmup: bool = False
+    #: 要预热的 URL（逗号分隔，通常是“自己的公网地址”，含前端与后端）
+    warmup_urls: str = ""
+    #: 间隔秒数：不宜太短，默认 180（与 veFaaS 定时触发器同频）
+    warmup_interval_seconds: int = 180
+    #: 单次预热的超时（秒）：失败就认输，不拖累业务
+    warmup_timeout_seconds: float = 15.0
+
     # ---------- 降级与调试 ----------
     enable_manual_source: bool = True
     enable_mock_provider: bool = True

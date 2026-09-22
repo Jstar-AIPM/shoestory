@@ -18,7 +18,8 @@ from app.core.config import Settings
 from app.core.errors import AppError, ErrorCode
 from app.core.idgen import now_iso
 from app.schemas.enums import STAGING_ARTWORK_TEMPLATE, TaskState
-from app.schemas.task import ArtworkCandidate, QualityInfo, TaskError, TaskRecord
+from app.schemas.llm import ModelResolveOut
+from app.schemas.task import ArtworkCandidate, QualityInfo, SourceInfo, TaskError, TaskRecord
 from app.services.providers.base import CallRecorder, ProviderBundle
 from app.services.storage.asset_store import AssetStore
 from app.services.storage.backend import StorageBackend
@@ -28,6 +29,7 @@ from app.services.style.registry import StyleRegistry
 from app.services.cv.edges import extract_edge_map
 from app.services.tools.generate_lineart import generate_lineart
 from app.services.tools.normalize_view import normalize_view
+from app.services.tools.prepare_source import MODE_REASON, prepare_source_candidates
 from app.services.tools.refine_lineart import refine_lineart
 from app.services.tools.segment_shoe import segment_shoe
 from app.services.tools.verify_lineart import verify_lineart
@@ -45,6 +47,7 @@ EDGE_FILENAME = "edge_map.png"
 S = TaskState
 
 PROGRESS: dict[TaskState, tuple[str, str, int]] = {
+    S.SEARCHING_SOURCE: ("searching_source", "正在找这双鞋的参考图", 10),
     S.PREPROCESSING: ("preprocessing", "去背景 + 校正到 3:2 画布", 15),
     S.GENERATING: ("generating", "生成黑白线稿", 45),
     S.REFINING: ("refining", "后处理：二值化 + 去噪", 72),
@@ -126,6 +129,14 @@ class PipelineRunner:
 
         model_only = bool(record.source.use_model_only)
         canvas_ready = bool(record.source.source_path) and self.asset_store.exists(record.source.source_path)
+
+        # 阶段：源图准备（文搜图 + 排序 + 视觉预筛，线上约 58s）
+        # 它原先在 POST /tasks 请求里串行跑，把请求拖到 60s+，超出前端 30s 超时；
+        # 现在出现在这里：接口只做型号校对（~2s）就返回，后续交给流水线，前端轮询。
+        if record.state == S.SEARCHING_SOURCE:
+            self._prepare_source(record, recorder, trace)
+            return
+
         if model_only:
             # 型号直出：候选图都不适合当参考时的兜底路径 —— 直接凭型号知识画线稿
             record.attempts.round = record.attempts.round + 1
@@ -298,6 +309,68 @@ class PipelineRunner:
                 return
 
     # ------------------------------------------------------------------ 步骤
+    def _prepare_source(
+        self, record: TaskRecord, recorder: CallRecorder, trace: TraceWriter
+    ) -> None:
+        """流水线阶段：文搜图 → 排序 → 视觉预筛 → 决定呈现方式。
+
+        结果要么落到人工确认点（awaiting_source_confirm），
+        要么落到 resolve_failed（搜图失败/空结果，用户可改用手动源图）。
+        """
+        self._set_state(record, S.SEARCHING_SOURCE, "search_start", {}, recorder)
+        resolved = ModelResolveOut(
+            normalized=record.resolve.normalized,
+            brand=record.resolve.brand,
+            confidence=record.resolve.confidence,
+            exists=record.resolve.exists,
+        )
+        try:
+            ranked, screen_summary, mode = prepare_source_candidates(
+                resolved,
+                settings=self.settings,
+                search_provider=self.providers.search,
+                judge=self.providers.judge,
+                recorder=recorder,
+                trace=trace,
+            )
+        except AppError as exc:
+            record.error = TaskError(code=exc.code.value, message=exc.message, detail=exc.detail)
+            record.upstream_calls = recorder.total_calls
+            record.est_cost_cny = recorder.total_cost
+            transit(record, S.RESOLVE_FAILED, event="search_failed", detail={"code": exc.code.value})
+            record.progress = {"step": "resolve_failed", "label": "取图失败", "percent": 100}
+            self._save(record)
+            trace.write("search_failed", code=exc.code.value)
+            return
+
+        record.source = SourceInfo(
+            candidates=ranked,
+            mode=mode,
+            recommended_index=0,
+            screen=screen_summary,
+        )
+        trace.write(
+            "search_result",
+            found=len(ranked),
+            provider=self.providers.search.name,
+            mode=mode,
+            screen=screen_summary,
+            mode_reason=MODE_REASON.get(mode, ""),
+        )
+        self._set_state(
+            record,
+            S.AWAITING_SOURCE_CONFIRM,
+            "source_candidates_ready",
+            {"count": len(ranked), "mode": mode},
+            recorder,
+        )
+        record.progress = {
+            "step": "awaiting_source_confirm",
+            "label": "请确认是这双吗",
+            "percent": 20,
+        }
+        self._save(record)
+
     def _preprocess(self, record: TaskRecord, style: StyleTemplate, trace: TraceWriter) -> None:
         self._set_state(record, S.PREPROCESSING, "preprocess_start", {}, None)
         source_bytes = self.asset_store.get_task_file(

@@ -6,6 +6,7 @@
 export type TaskState =
   | "created"
   | "resolving"
+  | "searching_source"
   | "model_not_found"
   | "resolve_failed"
   | "awaiting_source_confirm"

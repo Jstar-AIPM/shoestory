@@ -20,6 +20,8 @@ frontend/
 .git/
 .gitignore
 .vefaasignore
-*.md
-!README.md
 .DS_Store
+
+# 只排除根目录文档；app/ 内的 Prompt（*.md）是运行时必需资源，绝不能排除
+/*.md
+!README.md

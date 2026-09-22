@@ -10,6 +10,8 @@ describe("toUiState：后端 15 个状态全部有明确映射", () => {
   const cases: Array<[string, string]> = [
     ["created", "submitting"],
     ["resolving", "running"],
+    // 线上事故复盘：搜图/预筛移入后台流水线后新增的状态，必须映射为"处理中"且继续轮询
+    ["searching_source", "running"],
     ["model_not_found", "waiting_user"],
     ["resolve_failed", "waiting_user"],
     ["awaiting_source_confirm", "waiting_user"],
@@ -42,7 +44,7 @@ describe("toUiState：后端 15 个状态全部有明确映射", () => {
 
 describe("轮询/终态/等待用户的判定", () => {
   it("运行中与提交中才轮询", () => {
-    for (const state of ["created", "resolving", "preprocessing", "generating", "refining", "verifying", "archiving", "interrupted"]) {
+    for (const state of ["created", "resolving", "searching_source", "preprocessing", "generating", "refining", "verifying", "archiving", "interrupted"]) {
       expect(isPolling(state), state).toBe(true);
     }
   });

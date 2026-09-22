@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Request
 
 from app.api.deps import get_container, get_settings
 from app.services.datetext import parse_date_text
+from app.services.prompts.loader import missing_prompts, prompt_inventory
 
 router = APIRouter(tags=["system"])
 
@@ -16,6 +17,10 @@ router = APIRouter(tags=["system"])
 @router.get("/health")
 def health(request: Request, settings=Depends(get_settings)) -> dict:
     container = get_container(request)
+    # 部署包完整性：Prompt 文件缺失会让模型走兜底提示词（线上事故 2026-09-21），必须如实上报
+    inventory = prompt_inventory()
+    absent = sorted(name for name, ok in inventory.items() if not ok)
+    degraded = bool(absent)
     key_state = "ok" if settings.ark_key_present else "missing_key"
     if settings.ark_key_present and settings.missing_ark_config:
         key_state = "partial"
@@ -23,7 +28,7 @@ def health(request: Request, settings=Depends(get_settings)) -> dict:
         "mock" if not settings.search_credentials_present else "ok"
     )
     return {
-        "status": "ok",
+        "status": "degraded" if degraded else "ok",
         "version": settings.version,
         "env": settings.env,
         "python": platform.python_version(),
@@ -42,6 +47,8 @@ def health(request: Request, settings=Depends(get_settings)) -> dict:
             "inline_pipeline": settings.pipeline_inline,
         },
         "missing_config": container.providers.missing,
+        "missing_prompts": absent,
+        "prompts_read_failed": missing_prompts(),
         "notes": container.notes,
         "runtime": sys.version.split()[0],
     }
