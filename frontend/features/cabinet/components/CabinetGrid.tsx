@@ -6,7 +6,7 @@ export type GridState = "loading" | "empty" | "ready" | "failed";
 /**
  * 鞋柜网格。
  *
- * 前端手册 9.3 硬要求：loading / empty / failed 必须分开 ——
+ * 前端工程约定 9.3 硬要求：loading / empty / failed 必须分开 ——
  * 接口还没回来时**绝不能**先显示"还没有鞋"。
  */
 export function CabinetGrid({

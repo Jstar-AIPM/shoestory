@@ -204,7 +204,7 @@ node scripts/detail-check.mjs   # 详情页交互（编辑/删除/翻页）—�
 | **阶段 1 用单 HTML 而不是直接上 Next.js** | 本阶段唯一变量是"线稿风格与保真度能否稳定产出用户愿意归档的成品"；过早引入前端工程会把验证对象变成"前端能不能跑起来"。正式前端在阶段 3 重写，后端契约不变 |
 | **无 Key 也能跑（演示模式）** | 让评审者不必申请 API Key 就能看懂产品；同时保证 mock 绝不冒充真实验收 |
 
-完整的取舍与工程底线见 [`开发文档/内部工程笔记.md`](开发文档/内部工程笔记.md)。
+完整的取舍与工程底线见 [`docs/内部工程笔记.md`](docs/内部工程笔记.md)。
 
 ## 项目结构
 
@@ -236,10 +236,9 @@ node scripts/detail-check.mjs   # 详情页交互（编辑/删除/翻页）—�
 │   │   │   ├── style/       # 风格模板注册表（可注册，新增风格=新增 YAML）
 │   │   │   └── prompts/     # Prompt 与风格模板（独立文件、可版本追踪）
 │   │   └── static/          # 单 HTML 最小验收界面
-│   ├── tests/               # unit + integration（144 项）
+│   ├── tests/               # unit + integration（242 项）
 │   └── scripts/             # 冒烟与画稿自检
-├── 开发文档/                 # 内部工程笔记 + 分阶段技术开发文档
-├── docs/                    # PRD/手册副本、冒烟报告、产物
+├── docs/                    # PRD、技术文档、验收报告、截图与上线记录
 ├── data/                    # 运行时数据（gitignore）
 └── .github/workflows/       # CI：pytest + “无 Key 必须报待验”检查
 ```

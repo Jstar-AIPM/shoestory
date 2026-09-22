@@ -1,6 +1,6 @@
 """火山方舟 · 文本模型：型号校对（resolve_model）。
 
-Prompt 从 `prompts/resolve_model.md` 读取（手册 [A]：Prompt 独立管理、可版本追踪）。
+Prompt 从 `prompts/resolve_model.md` 读取（工程约定：Prompt 独立管理、可版本追踪）。
 格式不合规时**最多再试 1 次**（阶段文档 3.3：每双鞋最多 2 次文本调用）。
 """
 

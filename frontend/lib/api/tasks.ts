@@ -1,4 +1,4 @@
-/** 任务相关接口（前端手册 12.1：集中管理，页面不拼地址） */
+/** 任务相关接口（前端工程约定 12.1：集中管理，页面不拼地址） */
 import { request } from "@/lib/api/client";
 import type { ArchiveDetail, DateParseResponse, TaskOut } from "@/lib/api/types";
 

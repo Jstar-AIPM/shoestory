@@ -1,6 +1,6 @@
 """任务存储：`owners/{owner_id}/tasks/{task_id}.json`（含两个人工确认点）。
 
-手册 [A]：长时间任务必须保存可恢复的任务状态，不能只依赖内存变量。
+工程约定：长时间任务必须保存可恢复的任务状态，不能只依赖内存变量。
 """
 
 from __future__ import annotations

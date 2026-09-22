@@ -3,7 +3,7 @@
 为什么必须：veFaaS 实例除 `/tmp` 外只读，且 `/tmp` 随实例重建清空。
 业务数据（鞋柜 JSON）与资产（画稿图片）都必须落到对象存储，否则"数据会丢"。
 
-实现要点（《部署笔记》第十三节 + 排错清单）：
+实现要点（线上实测 + 排错清单）：
 - endpoint 用 `https://tos-s3-cn-beijing.volces.com`（注意 `tos-s3-` 前缀）
 - 必须显式 `signature_version="s3v4"` + `addressing_style="virtual"`（否则报 InvalidPathAccess）
 - key 仍然是"受控相对 key"（`owners/{owner_id}/...`），业务层零改动

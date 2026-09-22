@@ -1,6 +1,6 @@
 """启动恢复：把“跑了一半”的任务标记为 interrupted（可继续/放弃）。
 
-手册 [A]：人工确认点必须可恢复，因此 awaiting_source_confirm / awaiting_effect_confirm
+工程约定：人工确认点必须可恢复，因此 awaiting_source_confirm / awaiting_effect_confirm
 **不**在恢复范围内，重启后原样保留。
 """
 

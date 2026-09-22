@@ -1,5 +1,5 @@
 /**
- * 统一 HTTP 客户端：超时、JSON 解析、错误归一化集中在这里（前端手册 12.1）
+ * 统一 HTTP 客户端：超时、JSON 解析、错误归一化集中在这里（前端工程约定 12.1）
  * 页面组件不直接 fetch。
  */
 import { API_BASE, REQUEST_TIMEOUT_MS } from "@/config";

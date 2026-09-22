@@ -3,7 +3,7 @@
 /**
  * 鞋柜列表（服务端状态）
  *
- * 前端手册 9.3 硬要求：loading / empty / failed 必须分开 ——
+ * 前端工程约定 9.3 硬要求：loading / empty / failed 必须分开 ——
  * 接口还没回来时绝不能先显示"鞋柜还是空的"。
  *
  * 实现说明：初始加载在 effect 里**订阅 Promise 回调**，而不是在 effect 里同步 setState
