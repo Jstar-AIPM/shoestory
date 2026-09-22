@@ -16,6 +16,7 @@ from app.services.storage.asset_store import AssetStore
 from app.services.storage.backend import StorageBackend, build_backend
 from app.services.storage.task_store import TaskStore
 from app.services.style.registry import StyleRegistry
+from app.services.warmup import WarmupLoop
 from app.services.workflow.runner import PipelineRunner
 
 
@@ -31,6 +32,7 @@ class Container:
     runner: PipelineRunner
     invite_store: InviteStore
     session_signer: SessionSigner
+    warmup: WarmupLoop
     notes: list[str] = field(default_factory=list)
 
     @property
@@ -83,5 +85,10 @@ def build_container(settings: Settings | None = None) -> Container:
         runner=runner,
         invite_store=invite_store,
         session_signer=session_signer,
+        warmup=WarmupLoop(
+            ([u for u in settings.warmup_urls.split(",") if u.strip()] if settings.enable_warmup else []),
+            interval_seconds=settings.warmup_interval_seconds,
+            timeout_seconds=settings.warmup_timeout_seconds,
+        ),
         notes=notes,
     )

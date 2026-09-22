@@ -1,7 +1,7 @@
 /** 错误归一化：后端错误结构 → 前端 AppError（前端手册 12.3） */
 import { describe, expect, it } from "vitest";
 
-import { NETWORK_ERROR, normalizeError } from "../lib/api/errors";
+import { NETWORK_ERROR, TIMEOUT_ERROR, normalizeError } from "../lib/api/errors";
 
 describe("normalizeError", () => {
   it("解析后端统一错误结构，并把中文 message 作为 userMessage", () => {
@@ -39,6 +39,13 @@ describe("normalizeError", () => {
 
   it("网络失败有独立错误码", () => {
     expect(NETWORK_ERROR.code).toBe("NETWORK_ERROR");
-    expect(NETWORK_ERROR.userMessage).toContain("后端");
+    expect(NETWORK_ERROR.userMessage).toContain("网络");
+  });
+
+  it("超时（线上冷启动/长连接失效）与断网是不同的提示，且都可重试", () => {
+    expect(TIMEOUT_ERROR.code).toBe("REQUEST_TIMEOUT");
+    expect(TIMEOUT_ERROR.userMessage).toContain("服务正在启动");
+    expect(TIMEOUT_ERROR.retryable).toBe(true);
+    expect(TIMEOUT_ERROR.userMessage).not.toBe(NETWORK_ERROR.userMessage);
   });
 });

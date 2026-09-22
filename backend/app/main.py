@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -23,6 +24,7 @@ from app.core.config import Settings
 from app.core.container import build_container
 from app.core.errors import AppError, ErrorCode, message_for
 from app.core.logging import log_jsonl_path, log_event, setup_logging
+from app.services.prompts.loader import prompt_inventory
 from app.services.workflow.recovery import recover_on_startup
 
 logger = logging.getLogger("app")
@@ -48,6 +50,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         bootstrapped = container.invite_store.bootstrap_from_env()
         if bootstrapped:
             logger.info("已从环境变量初始化 %d 个邀请码（不打印码本身）", len(bootstrapped))
+        # 启动自检：Prompt 模板是运行时必需资源，缺了就是"部署包不完整"，必须立刻可见
+        missing_files = [name for name, ok in prompt_inventory().items() if not ok]
+        if missing_files:
+            logger.error(
+                "启动自检失败：缺少 %d 个 Prompt 文件 %s（检查部署打包规则是否排除了 prompts/*.md）",
+                len(missing_files),
+                ", ".join(missing_files),
+            )
         log_event(
             logger,
             "startup",
@@ -57,8 +67,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             interrupted_tasks=len(marked),
             data_root=str(settings.data_root),
             log_path=str(log_jsonl_path() or ""),
+            missing_prompts=missing_files,
+            warmup_urls=[urlsplit(u).netloc for u in container.warmup.urls],
         )
+        # 自预热：让网关到本实例的长连接不因空闲失效（详见 services/warmup.py）
+        container.warmup.start()
         yield
+        container.warmup.stop()
         container.runner.shutdown()
         log_event(logger, "shutdown")
 
