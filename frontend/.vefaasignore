@@ -1,0 +1,16 @@
+# veFaaS 打包排除清单（frontend/）
+#
+# ⚠️ 踩过的坑（2026-09-21 实测）：前端是「本地构建 + 上传构建产物」，
+# 打包根目录就是 `--outputPath`（即 .next/standalone）。
+# 所以这里**绝对不能**写 `.next/` 或 `node_modules/`：
+#   - `.next/` 会匹配打包根目录自身 → 产物被清空（上传 3.9KB，线上报 Cannot find module 'next'）
+#   - `node_modules/` 会把 standalone 自带的依赖删掉 → 同样启动失败
+# 只排除输出目录内确实无用的东西。
+*.md
+!README.md
+.DS_Store
+.env
+.env.*
+coverage/
+e2e/
+scripts/

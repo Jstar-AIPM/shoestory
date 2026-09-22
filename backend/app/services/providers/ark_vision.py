@@ -6,16 +6,18 @@
 
 from __future__ import annotations
 
-from app.core.config import PROMPTS_DIR, Settings
+from app.core.config import Settings
 from app.services.cv.imageio import prepare_for_vision
 from app.core.errors import AppError, ErrorCode
 from app.schemas.llm import QualityReportOut, SourceScreenOut
 from app.services.parsers import validate_llm_output
+from app.services.prompts.loader import load_prompt_text
 from app.services.providers.ark_common import ArkClient
 from app.services.providers.base import CallRecorder, timer
 from app.services.style.loader import StyleTemplate
 
 SYSTEM_FALLBACK = "你是严格的球鞋线稿质检员。只输出一个 JSON 对象，四项分数都要给。"
+SCREEN_FALLBACK = "你是球鞋图片可用性审核员，只输出一个 JSON 对象。"
 
 
 class ArkQualityJudge:
@@ -30,11 +32,8 @@ class ArkQualityJudge:
 
     @staticmethod
     def _load_prompt() -> str:
-        path = PROMPTS_DIR / "verify_lineart.md"
-        try:
-            return path.read_text(encoding="utf-8")
-        except OSError:
-            return SYSTEM_FALLBACK
+        # 质检提示词缺失 = 质检闸门失效（比报错更危险），必须能在日志/健康检查里看见
+        return load_prompt_text("verify_lineart.md", SYSTEM_FALLBACK)
 
     def judge(
         self,
@@ -95,11 +94,8 @@ class ArkQualityJudge:
 
     # ---------------- 候选源图可用性预筛 ----------------
     def _load_screen_prompt(self) -> str:
-        path = PROMPTS_DIR / "screen_source_images.md"
-        try:
-            return path.read_text(encoding="utf-8")
-        except OSError:  # pragma: no cover
-            return "你是球鞋图片可用性审核员，只输出一个 JSON 对象。"
+        # 同 _load_prompt：缺失会记 ERROR 并进入健康检查的 missing_prompts
+        return load_prompt_text("screen_source_images.md", SCREEN_FALLBACK)
 
     def screen_sources(
         self,
