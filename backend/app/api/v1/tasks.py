@@ -21,7 +21,6 @@ from app.schemas.task import (
     ArtworkOut,
     RegenerateIn,
     ResolveInfo,
-    SourceInfo,
     SourceSelectIn,
     TaskActionOut,
     TaskCreateIn,
@@ -33,13 +32,10 @@ from app.services.cv.imageio import encode_png, open_image, validate_image_bytes
 from app.services.providers.base import CallRecorder
 from app.services.storage.task_store import TERMINAL_STATES
 from app.services.tools.archive_shoe import archive_shoe
-from app.services.tools.rank_source_images import rank_source_images
-from app.services.tools.screen_source_images import screen_or_fallback
 from app.services.tools.resolve_model import resolve_model
 from app.services.tools.search_shoe_image import (
     fetch_candidate_preview,
     fetch_source_image,
-    search_shoe_image,
 )
 from app.services.workflow import hooks
 from app.services.auth.quota import consume_generation
@@ -172,78 +168,19 @@ def create_task(
         container.task_store.save(record)
         return to_task_out(record)
 
-    try:
-        candidates = search_shoe_image(
-            resolved.normalized, container.providers.search, settings.search_max_images, recorder
-        )
-    except AppError as exc:
-        record.error = TaskError(code=exc.code.value, message=exc.message, detail=exc.detail)
-        transit(record, S.RESOLVE_FAILED, event="search_failed", detail={"code": exc.code.value})
-        record.progress = {"step": "resolve_failed", "label": "取图失败", "percent": 100}
-        record.upstream_calls = recorder.total_calls
-        record.est_cost_cny = recorder.total_cost
-        container.task_store.save(record)
-        trace.write("search_failed", code=exc.code.value)
-        if exc.code is ErrorCode.IMAGE_SEARCH_EMPTY:
-            # 业务结果：如实告知 + 给出下一步（可用“高级：手动给一张源图”）
-            return to_task_out(record)
-        raise
-
-    ranked = rank_source_images(candidates)
-
-    # 预筛：文搜图常返回“两只鞋合影 / 3/4 角度 / 背景杂乱”的资讯配图，直接用会把坏输入推给用户
-    # （实测已被风格闸门拦下）。这里用一次视觉调用判断每张图能不能当参考（本机计算）。
-    ranked, screen_summary = screen_or_fallback(
-        ranked,
-        judge=container.providers.judge,
-        recorder=recorder,
-        settings=settings,
-        model_name=resolved.normalized,
-        trace=trace,
-    )
-
-    # 系统先决定"该怎么画"，而不是把挑图丢给用户：
-    # - 预筛判定有可用参考图 -> single：只展示 1 张推荐图（界面：「就是这双，开始画」）
-    # - 预筛判定都不适合   -> model_only：**默认直接用型号生成**（实测 0.829 vs 用坏图 0.605，
-    #   Logo 0.90 vs 0.32 —— 坏参考图会把 Logo 带歪），仍可展开候选图手动选
-    # - 型号置信度不足     -> choose：展开多张让用户判断
-    confident = resolved.confidence >= settings.source_confirm_confidence
-    if not ranked:
-        mode = "choose"
-    elif not confident:
-        mode = "choose"
-    elif screen_summary.get("usable", True):
-        mode = "single"
-    else:
-        mode = "model_only"
-    record.source = SourceInfo(
-        candidates=ranked,
-        mode=mode,
-        recommended_index=0,
-        screen=screen_summary,
-    )
+    # 接口到此为止返回（约 2 秒）：型号校对结果是用户最先要看的东西，同步给到。
+    # 后续「文搜图 + 下载候选图 + 视觉预筛」线上实测约 58 秒，放进后台流水线
+    # （状态 searching_source），否则请求会被前端 30s 超时或网关限制卡断。
     record.upstream_calls = recorder.total_calls
     record.est_cost_cny = recorder.total_cost
-    transit(
-        record,
-        S.AWAITING_SOURCE_CONFIRM,
-        event="source_candidates_ready",
-        detail={"count": len(ranked), "mode": mode},
-    )
-    record.progress = {
-        "step": "awaiting_source_confirm",
-        "label": "请确认是这双吗",
-        "percent": 20,
-    }
+    transit(record, S.SEARCHING_SOURCE, event="source_search_start")
+    record.progress = {"step": "searching_source", "label": "正在找这双鞋的参考图", "percent": 10}
     container.task_store.save(record)
-    trace.write(
-        "search_result",
-        found=len(ranked),
-        provider=container.providers.search.name,
-        mode=mode,
-        screen=screen_summary,
-    )
-    return to_task_out(record)
+
+    _schedule(container, owner_id, record.task_id)
+
+    # 测试/内联模式下流水线已同步跑完，回读一次拿到最新状态（生产返回 searching_source）
+    return to_task_out(container.task_store.get(owner_id, record.task_id))
 
 
 @router.get("/{task_id}", response_model=TaskOut)
