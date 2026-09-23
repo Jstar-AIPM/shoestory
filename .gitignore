@@ -15,7 +15,7 @@ backend/data/
 # 依据免责声明「仓库内不提交真实品牌商品图」，这两项目录仅本地保留。
 风格参考/
 测试效果/
-docs/风格探针/
+docs/style-probe/
 docs/smoke-artifacts/
 
 # --- Python ---
