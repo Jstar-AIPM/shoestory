@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     app_port: int = 8787
     app_log_level: str = "INFO"
     data_dir: str = "./data"
-    version: str = "0.1.0-stage1"
+    version: str = "0.2.0-v2"
 
     # ---------- 存储 ----------
     storage_provider: Literal["local", "s3"] = "local"
