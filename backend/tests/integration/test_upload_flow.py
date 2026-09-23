@@ -79,6 +79,77 @@ def test_upload_chain_uses_inspect_hints_and_archive_name(api: TestClient) -> No
     assert created["shoe_id"]
 
 
+def test_upload_large_image_crops_client_region(api: TestClient) -> None:
+    """超大图（服务端会缩）上传后，裁的必须是客户端框住的那一块。
+
+    与 ``test_inspect_api`` 里同名思路的测试对称：那里盖体检，这里盖建任务。
+    断言方式是“看画布颜色”—— 框对 → 画布是红的；坐标没换算 → 画布几乎全白。
+    """
+    from app.services.workflow.runner import SOURCE_FILENAME
+
+    width, height = 3000, 2000  # 长边超 max_upload_edge(2400) → 触发缩图（系数 0.8）
+    image = Image.new("RGB", (width, height), "white")
+    # 小块（宽高比 2:1，像鞋）+ 紧贴的裁切框：坐标若不换算，框会整体向右下偏 25%，正好完全错过红块
+    ImageDraw.Draw(image).rectangle((1000, 600, 1200, 700), fill=(220, 30, 30))
+    buffer = io.BytesIO()
+    image.save(buffer, "PNG")
+    payload = base64.b64encode(buffer.getvalue()).decode()
+
+    task = api.post(
+        "/api/v1/tasks/upload",
+        json={
+            "image_base64": payload,
+            "crop": {"x": 980, "y": 580, "w": 240, "h": 140},
+            "inspect": {"display_name": "ASICS GEL-Nimbus 27", "brand": "ASICS", "model_name": "GEL-Nimbus 27"},
+        },
+    ).json()
+    assert task["state"] == "awaiting_effect_confirm", task
+
+    container = api.app.state.container
+    key = container.asset_store.task_key(container.settings.dev_owner_id, task["task_id"], SOURCE_FILENAME)
+    canvas = np.array(Image.open(io.BytesIO(container.asset_store.get(key))).convert("RGB"))
+    mean = canvas.reshape(-1, 3).mean(axis=0)
+    assert float(mean[0]) - float(mean[1]) > 80, f"画布应以红块为主（说明裁对了区域），实际均值 {mean}"
+
+
+def test_upload_exif_rotated_photo_crops_browser_region(api: TestClient) -> None:
+    """EXIF 方向的手机照片：裁的必须是**浏览器里看到的那一块**。
+
+    存储 1200×800 + EXIF 6 → 浏览器看到 800×1200（红块在 500,100-700,500）。
+    服务端若不摆正，同一个框会裁到白底 —— 画出来的鞋就错了。
+    这里直接查上传后存下的源图（source_0.png = 用户框住的那块），不经过生成链路。
+    """
+    from app.services.workflow.runner import SOURCE_FILENAME
+
+    image = Image.new("RGB", (1200, 800), "white")
+    ImageDraw.Draw(image).rectangle((100, 100, 500, 300), fill=(220, 30, 30))
+    exif = Image.Exif()
+    exif[0x0112] = 6
+    buffer = io.BytesIO()
+    image.save(buffer, "JPEG", exif=exif)
+    payload = base64.b64encode(buffer.getvalue()).decode()
+
+    crop = {"x": 480, "y": 80, "w": 260, "h": 440}  # 摆正后的坐标系
+    task = api.post(
+        "/api/v1/tasks/upload",
+        json={
+            "image_base64": payload,
+            "crop": crop,
+            "inspect": {"display_name": "ASICS GEL-Nimbus 27", "brand": "ASICS", "model_name": "GEL-Nimbus 27"},
+        },
+    ).json()
+    assert task["state"] == "awaiting_effect_confirm", task
+
+    container = api.app.state.container
+    key = container.asset_store.task_key(container.settings.dev_owner_id, task["task_id"], SOURCE_FILENAME)
+    source = np.array(Image.open(io.BytesIO(container.asset_store.get(key))).convert("RGB"))
+    assert source.shape[:2] == (crop["h"], crop["w"]), "源图应就是用户框住的那一块"
+    center = source[crop["h"] // 2, crop["w"] // 2]
+    corner = source[3, 3]
+    assert int(center[0]) - int(center[1]) > 100, f"中心应是红块（说明摆正+裁对了），实际 {center}"
+    assert corner.min() > 200, f"边角应是白底，实际 {corner}"
+
+
 def test_upload_does_not_call_vision_again(api: TestClient, monkeypatch) -> None:
     """上传任务不应触发第二次视觉体检（省钱：体检已在 /inspect 做过）。"""
     image = _shoe_png_base64()

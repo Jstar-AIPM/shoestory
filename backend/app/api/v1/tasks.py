@@ -32,7 +32,15 @@ from app.schemas.task import (
     TaskRecord,
     UploadTaskCreateIn,
 )
-from app.services.cv.imageio import crop_box, encode_png, open_image, shrink_image, validate_image_bytes
+from app.services.cv.imageio import (
+    crop_box,
+    encode_png,
+    open_image,
+    open_image_upright,
+    scale_box,
+    shrink_pil_with_scale,
+    validate_image_bytes,
+)
 from app.services.providers.base import CallRecorder
 from app.services.storage.task_store import TERMINAL_STATES
 from app.services.tools.archive_shoe import archive_shoe
@@ -225,9 +233,14 @@ def create_upload_task(
     # 额度：1 次生成 = 扣 1 次（体检另计，不在此列）
     consume_generation(settings, container.invite_store, owner_id)
 
-    data = shrink_image(_decode_upload_base64(payload.image_base64), settings.max_upload_edge)
-    image = open_image(data)
-    cropped = crop_box(image, payload.crop.as_tuple())
+    # 与 /inspect 同一套坐标系约定：EXIF 摆正 → 缩图 → 裁切框乘同一个系数
+    image, ratio = shrink_pil_with_scale(
+        open_image_upright(_decode_upload_base64(payload.image_base64)), settings.max_upload_edge
+    )
+    box = payload.crop.as_tuple()
+    if ratio != 1.0:
+        box = scale_box(box, ratio)
+    cropped = crop_box(image, box)
     png = encode_png(cropped.convert("RGB"))
 
     name = payload.inspect.name_for_archive or payload.inspect.display_name or "上传的球鞋"

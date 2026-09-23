@@ -119,6 +119,106 @@ def test_uncertain_is_allowed_with_soft_hint(api: TestClient, monkeypatch: pytes
     assert "不太确定" in data["message"]
 
 
+def test_large_image_keeps_client_coordinate_space(api: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """服务端缩过大图后，裁切框坐标必须仍在**客户端那张图**的坐标系里。
+
+    真实风险：手机/截图原图可能远超 max_upload_edge。服务端一缩图，坐标空间就变了 ——
+    若不换算，会静默地裁到鞋以外（不报错、只是画错鞋）。这里同时验证两件事：
+    ① 响应里的 crop / image 尺寸回到原图坐标系；② 视觉模型收到的确实是客户端框的那一块。
+    """
+    import numpy as np
+
+    width, height = 3000, 2000  # 长边 3000 > max_upload_edge(2400) → 触发缩图（系数 0.8）
+    image = Image.new("RGB", (width, height), "white")
+    ImageDraw.Draw(image).rectangle((1000, 600, 1600, 900), fill=(220, 30, 30))  # 红块居中
+    buffer = io.BytesIO()
+    image.save(buffer, "PNG")
+    payload = base64.b64encode(buffer.getvalue()).decode()
+
+    seen: dict = {}
+
+    def capturing_inspect(self, *, image: bytes, recorder) -> PhotoInspectOut:  # noqa: ANN001
+        seen["arr"] = np.array(Image.open(io.BytesIO(image)).convert("RGB"))
+        return PhotoInspectOut(
+            is_shoe=True,
+            confidence=0.95,
+            shoe_count=1,
+            brand="ASICS",
+            model_name="GEL-Nimbus 27",
+            logo=LogoInfo(type="两侧交叉条纹", position="鞋身两侧"),
+            texts=[ShoeText(text="GEL", position="鞋侧中足")],
+        )
+
+    monkeypatch.setattr("app.services.providers.mock.MockQualityJudge.inspect_photo", capturing_inspect)
+
+    crop = {"x": 900, "y": 500, "w": 800, "h": 400}  # 红块在框内居中
+    data = _inspect(api, image=payload, crop=crop).json()
+    assert data["tier"] == "ok", data
+    assert data["crop"] == crop, "响应必须回到客户端原始坐标系（原图 3000x2000）"
+    assert data["image"] == {"width": 3000, "height": 2000}
+
+    arr = seen["arr"]
+    out_h, out_w = arr.shape[:2]
+    assert (out_w, out_h) == (640, 320), f"视觉模型拿到的应是换算后的裁切区，实际 {(out_w, out_h)}"
+    center = arr[out_h // 2, out_w // 2]
+    corner = arr[2, 2]
+    assert center[0] > 180 and center[1] < 80, f"中心应是用户框里的红块，实际 {center}"
+    assert corner.min() > 200, f"边角应是白底，说明没有裁错位置，实际 {corner}"
+
+
+def _exif_shoe_base64() -> str:
+    """带 EXIF 方向（6 = 需顺时针 90° 才正）的 JPEG：存储 1200×800，浏览器看到 800×1200。"""
+    image = Image.new("RGB", (1200, 800), "white")
+    ImageDraw.Draw(image).rectangle((100, 100, 500, 300), fill=(220, 30, 30))
+    exif = Image.Exif()
+    exif[0x0112] = 6
+    buffer = io.BytesIO()
+    image.save(buffer, "JPEG", exif=exif)
+    return base64.b64encode(buffer.getvalue()).decode()
+
+
+def test_exif_rotated_photo_uses_browser_coordinate_space(
+    api: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """手机照片常见 EXIF 方向：浏览器会摆正显示，服务端也必须摆正，否则坐标系差 90°。
+
+    客户端框的是**摆正后**的 800×1200 坐标系；服务端若不应用 EXIF，会拿这个框去裁未旋转的
+    1200×800 图 —— 裁到的地方完全不同（静默错误）。这里直接看视觉模型收到的到底是哪一块。
+    """
+    import numpy as np
+
+    seen: dict = {}
+
+    def capturing_inspect(self, *, image: bytes, recorder) -> PhotoInspectOut:  # noqa: ANN001
+        seen["arr"] = np.array(Image.open(io.BytesIO(image)).convert("RGB"))
+        return PhotoInspectOut(
+            is_shoe=True,
+            confidence=0.95,
+            shoe_count=1,
+            brand="ASICS",
+            model_name="GEL-Nimbus 27",
+            logo=LogoInfo(type="两侧交叉条纹", position="鞋身两侧"),
+            texts=[ShoeText(text="GEL", position="鞋侧中足")],
+        )
+
+    monkeypatch.setattr("app.services.providers.mock.MockQualityJudge.inspect_photo", capturing_inspect)
+
+    # 摆正后红块在 (500,100)-(700,500)，框略大一圈
+    crop = {"x": 480, "y": 80, "w": 260, "h": 440}
+    data = _inspect(api, image=_exif_shoe_base64(), crop=crop).json()
+    assert data["tier"] == "ok", data
+    assert data["image"] == {"width": 800, "height": 1200}, "尺寸应是浏览器看到的（摆正后）"
+    assert data["crop"] == crop, "响应坐标应在客户端（摆正后）坐标系里"
+
+    arr = seen["arr"]
+    out_h, out_w = arr.shape[:2]
+    assert (out_w, out_h) == (260, 440)
+    center = arr[out_h // 2, out_w // 2]
+    corner = arr[2, 2]
+    assert center[0] > 180 and center[1] < 80, f"中心应是红块（说明裁对了位置），实际 {center}"
+    assert corner.min() > 200, f"边角应是白底，实际 {corner}"
+
+
 def test_crop_must_be_sane(api: TestClient) -> None:
     response = _inspect(api, crop={"x": 0, "y": 0, "w": 0, "h": 10})
     assert response.status_code == 422  # pydantic 校验：w 必须 > 0

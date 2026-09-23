@@ -23,6 +23,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.api.deps import current_identity, get_container
 from app.core.errors import AppError, ErrorCode
 from app.services.auth.quota import consume_inspect
+from app.services.cv.imageio import encode_png, open_image_upright, scale_box, shrink_pil_with_scale
 from app.services.inspect import InspectResult, inspect_upload
 from app.services.providers.base import CallRecorder
 
@@ -74,28 +75,15 @@ def _decode(data: str) -> bytes:
     return payload
 
 
-def _shrink(data: bytes, max_edge: int) -> bytes:
-    """超过 ``max_edge`` 的图等比缩小（保护内存与上游计费；画布只需 1536 宽）。"""
-    import io
-
-    from PIL import Image
-
-    image = Image.open(io.BytesIO(data))
-    if max(image.size) <= max_edge:
-        return data
-    ratio = max_edge / max(image.size)
-    resized = image.convert("RGB").resize(
-        (max(1, int(image.width * ratio)), max(1, int(image.height * ratio)))
-    )
-    buffer = io.BytesIO()
-    resized.save(buffer, "PNG")
-    return buffer.getvalue()
-
-
-def _to_out(result: InspectResult) -> InspectOut:
+def _to_out(result: InspectResult, *, upscale: float = 1.0) -> InspectOut:
+    """
+    ``upscale`` 把内部（可能缩小过的）坐标换算回**客户端上传的那张图**的坐标系 ——
+    对客户端而言坐标空间永远是它自己发过来的图，服务端缩图是实现细节。
+    """
     crop = None
     if result.crop:
-        crop = CropBox(x=result.crop[0], y=result.crop[1], w=result.crop[2], h=result.crop[3])
+        box = scale_box(result.crop, upscale)
+        crop = CropBox(x=box[0], y=box[1], w=box[2], h=box[3])
     vision = result.vision
     return InspectOut(
         ok=result.ok,
@@ -103,7 +91,10 @@ def _to_out(result: InspectResult) -> InspectOut:
         message=result.message,
         hint=result.hint,
         crop=crop,
-        image={"width": result.image_size[0], "height": result.image_size[1]},
+        image={
+            "width": int(round(result.image_size[0] * upscale)),
+            "height": int(round(result.image_size[1] * upscale)),
+        },
         subject={"status": result.subject_status, "count": result.subject_count},
         detail={
             "brand": vision.brand if vision else "",
@@ -134,17 +125,25 @@ def inspect(
     container = get_container(request)
     settings = container.settings
 
-    data = _shrink(_decode(payload.image_base64), settings.max_upload_edge)
+    # 先把 EXIF 方向摆正（与浏览器的坐标系一致），再缩图；两者都会改变坐标空间，
+    # 所以裁切框要乘同一个系数换算。
+    image, ratio = shrink_pil_with_scale(open_image_upright(_decode(payload.image_base64)), settings.max_upload_edge)
+    data = encode_png(image)
 
     # 只有"用户确认裁切框"这一步才会调用视觉模型 → 此处才计入护栏
     if payload.crop is not None:
         consume_inspect(settings, owner_id, today=date.today().isoformat())
+
+    # 客户端的裁切框在**原图**坐标系里；服务端缩过图就要换算到缩图坐标系
+    crop = payload.crop.as_tuple() if payload.crop else None
+    if crop is not None and ratio != 1.0:
+        crop = scale_box(crop, ratio)
 
     recorder = CallRecorder(settings.task_max_upstream_calls, settings)
     result = inspect_upload(
         data,
         providers=container.providers,
         recorder=recorder,
-        crop=payload.crop.as_tuple() if payload.crop else None,
+        crop=crop,
     )
-    return _to_out(result)
+    return _to_out(result, upscale=1.0 / ratio)
