@@ -20,6 +20,8 @@ def generate_lineart(
     recorder: CallRecorder,
     structure_reference: bytes | None = None,
     model_name: str | None = None,
+    logo_fill: str | None = None,
+    shoe_texts: list[str] | None = None,
 ) -> bytes:
     return generator.generate(
         canvas_png=canvas_bytes,
@@ -28,4 +30,6 @@ def generate_lineart(
         recorder=recorder,
         structure_reference=structure_reference,
         model_name=model_name,
+        logo_fill=logo_fill,
+        shoe_texts=shoe_texts,
     )

@@ -73,6 +73,29 @@ def has_alpha_content(data: bytes) -> bool:
     return alpha.getextrema()[0] < 250
 
 
+def shrink_image(data: bytes, max_edge: int) -> bytes:
+    """超过 ``max_edge`` 的图等比缩小（保护内存与上游计费；画布只需 1536 宽）。"""
+    img = open_image(data)
+    if max(img.size) <= max_edge:
+        return data
+    ratio = max_edge / max(img.size)
+    resized = img.convert("RGB").resize(
+        (max(1, int(img.width * ratio)), max(1, int(img.height * ratio))),
+        Image.LANCZOS,
+    )
+    return encode_png(resized)
+
+
+def crop_box(image: Image.Image, box: tuple[int, int, int, int]) -> Image.Image:
+    """按 (x,y,w,h) 裁切并夹到图像边界内；范围过小抛 INVALID_INPUT。"""
+    x, y, w, h = box
+    x0, y0 = max(0, x), max(0, y)
+    x1, y1 = min(image.width, x + w), min(image.height, y + h)
+    if x1 - x0 < 32 or y1 - y0 < 32:
+        raise AppError(ErrorCode.INVALID_INPUT, detail={"reason": "裁切范围太小"})
+    return image.crop((x0, y0, x1, y1))
+
+
 def prepare_for_vision(data: bytes, *, max_edge: int = 1024, quality: int = 85) -> bytes:
     """给视觉模型看的缩略图：长边限制 + JPEG 压缩。
 

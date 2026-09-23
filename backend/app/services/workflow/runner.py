@@ -11,8 +11,12 @@
 
 from __future__ import annotations
 
+import io
 import logging
 from concurrent.futures import ThreadPoolExecutor
+
+import numpy as np
+from PIL import Image
 
 from app.core.config import Settings
 from app.core.errors import AppError, ErrorCode
@@ -27,6 +31,7 @@ from app.services.storage.task_store import TERMINAL_STATES, TaskStore
 from app.services.style.loader import StyleTemplate
 from app.services.style.registry import StyleRegistry
 from app.services.cv.edges import extract_edge_map
+from app.services.cv.text_stamp import TextStamp, build_text_stamp, composite_text_stamps
 from app.services.tools.generate_lineart import generate_lineart
 from app.services.tools.normalize_view import normalize_view
 from app.services.tools.prepare_source import MODE_REASON, prepare_source_candidates
@@ -193,6 +198,8 @@ class PipelineRunner:
                     recorder=recorder,
                     structure_reference=structure_png,
                     model_name=record.resolve.normalized or record.query,
+                    logo_fill=record.inspect.logo_fill_hint if record.inspect else None,
+                    shoe_texts=record.inspect.texts if record.inspect else None,
                 )
                 self.asset_store.put_task_file(owner_id, task_id, f"raw_a{attempt}.png", raw)
 
@@ -215,6 +222,14 @@ class PipelineRunner:
                     recorder=recorder,
                     settings=self.settings,
                 )
+
+                # 文字兜底贴合（决策记录九.⑧）：文字可辨度过低时，把原图裁出的文字贴到线稿
+                if result.report.text_legible < self.settings.text_fallback_threshold:
+                    stamps = self._load_text_stamps(owner_id, task_id, record.text_stamps)
+                    if stamps:
+                        final = composite_text_stamps(final, stamps)
+                        self.asset_store.put_task_file(owner_id, task_id, artwork_name, final)
+                        trace.write("text_stamp_applied", count=len(stamps), attempt=attempt)
             except AppError as exc:
                 record.upstream_calls = recorder.total_calls
                 record.est_cost_cny = recorder.total_cost
@@ -244,6 +259,9 @@ class PipelineRunner:
                     "style_consistency": result.report.style_consistency,
                     "noise_level": result.report.noise_level,
                     "canvas_ratio": result.artwork_check["canvas_score"],
+                    "logo_filled": result.report.logo_filled,
+                    "laces_solid_ratio": result.report.laces_solid_ratio,
+                    "text_legible": result.report.text_legible,
                 },
                 issues=result.issues,
                 verdict=result.report.verdict or ("pass" if result.passed else "fail"),
@@ -291,7 +309,7 @@ class PipelineRunner:
                             "或本身就是深色鞋）——建议换一张候选图再试。"
                             if style_blocked
                             else (
-                                f"连续 {max_attempts} 次质检都没通过，已把最接近的一张交给你裁决。"
+                                f"连续 {max_attempts} 次质检都没通过，已把最接近的一张交给您裁决。"
                                 f"原因：{'；'.join(result.issues[:2]) or '内容质量未达标准'}"
                             )
                         ),
@@ -390,6 +408,9 @@ class PipelineRunner:
         )
         record.source.source_path = canvas_key
 
+        # 文字兜底贴片：从原图裁出文字区域（决策记录九.⑧）—— 失败不致命，静默跳过
+        record.text_stamps = self._build_text_stamps(record, source_bytes, canvas, normalize_meta)
+
         structure_key: str | None = None
         if self.settings.enable_structure_reference:
             edge_png, edge_meta = extract_edge_map(
@@ -415,6 +436,59 @@ class PipelineRunner:
             {"canvas": canvas_key, "structure_reference": bool(structure_key)},
             None,
         )
+
+    def _build_text_stamps(
+        self,
+        record: TaskRecord,
+        source_bytes: bytes,
+        canvas: bytes,
+        normalize_meta: dict,
+    ) -> list[dict]:
+        """把体检给的文字归一化 bbox 映射到画布坐标，并从画布裁出二值文字贴片。"""
+        if not record.inspect or not record.inspect.text_stamps:
+            return []
+        bbox = normalize_meta.get("subject_bbox")
+        scale = normalize_meta.get("scale")
+        offset = normalize_meta.get("offset")
+        if not bbox or scale is None or offset is None:
+            return []
+
+        with Image.open(io.BytesIO(source_bytes)) as source:
+            cropped_size = (source.width, source.height)
+        canvas_rgb = np.array(Image.open(io.BytesIO(canvas)).convert("RGB"))
+
+        stamps: list[dict] = []
+        for index, item in enumerate(record.inspect.text_stamps):
+            if item.box is None or not item.text:
+                continue
+            stamp = build_text_stamp(
+                canvas_rgb,
+                box_norm=item.box,
+                cropped_size=cropped_size,
+                subject_bbox=tuple(bbox),
+                scale=float(scale),
+                offset=tuple(offset),
+            )
+            if stamp is None:
+                continue
+            name = f"text_stamp_{index}.png"
+            self.asset_store.put_task_file(record.owner_id, record.task_id, name, stamp.png)
+            stamps.append({"box": list(stamp.box), "path": name})
+        return stamps
+
+    def _load_text_stamps(self, owner_id: str, task_id: str, stamps_meta: list[dict]) -> list[TextStamp]:
+        """从任务目录读回文字贴片（生成阶段用）。"""
+        out: list[TextStamp] = []
+        for meta in stamps_meta:
+            path = meta.get("path")
+            box = meta.get("box")
+            if not path or not box:
+                continue
+            key = self.asset_store.task_key(owner_id, task_id, path)
+            if not self.asset_store.exists(key):
+                continue
+            out.append(TextStamp(box=tuple(box), png=self.asset_store.get(key)))
+        return out
 
     def _set_state(
         self,

@@ -54,6 +54,131 @@ class SourceSelectIn(BaseModel):
         return self
 
 
+class CropBox(BaseModel):
+    """上传图裁切框（原图坐标 x,y,w,h）。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    x: int = Field(ge=0)
+    y: int = Field(ge=0)
+    w: int = Field(gt=0)
+    h: int = Field(gt=0)
+
+    def as_tuple(self) -> tuple[int, int, int, int]:
+        return (self.x, self.y, self.w, self.h)
+
+
+class TextStamp(BaseModel):
+    """鞋身文字的可定位信息（文字兜底贴合用）。
+
+    ``box`` 是相对**体检裁切图**的归一化边界框 ``[x, y, w, h]``（均 ∈ [0,1]）。
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    text: str = Field(default="", max_length=40)
+    position: str = Field(default="", max_length=60)
+    box: tuple[float, float, float, float] | None = None
+
+    @field_validator("text", "position", mode="before")
+    @classmethod
+    def _clean(cls, value: Any) -> str:
+        return "" if value is None else str(value).strip()
+
+    @field_validator("box", mode="before")
+    @classmethod
+    def _clean_box(cls, value: Any) -> tuple[float, float, float, float] | None:
+        if value is None:
+            return None
+        if not isinstance(value, (list, tuple)) or len(value) != 4:
+            return None
+        try:
+            x, y, w, h = (float(v) for v in value)
+        except (TypeError, ValueError):
+            return None
+        if w <= 0.01 or h <= 0.01:
+            return None
+        return (
+            max(0.0, min(1.0, x)),
+            max(0.0, min(1.0, y)),
+            min(1.0, max(0.0, w)),
+            min(1.0, max(0.0, h)),
+        )
+
+
+class InspectHints(BaseModel):
+    """上传图体检结果里、供「生成」与「归档命名」复用的那部分。
+
+    前端在 ``POST /inspect``（带裁切框）拿到三档结论与品牌/型号/Logo/文字后，
+    确认要画，就把这些信息原样带回 ``POST /tasks/upload`` —— 后端不再二次调用视觉模型。
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    display_name: str = Field(default="", max_length=120)
+    brand: str = Field(default="", max_length=40)
+    model_name: str = Field(default="", max_length=80)
+    colorway: str = Field(default="", max_length=40)
+    logo_type: str = Field(default="", max_length=60)
+    logo_position: str = Field(default="", max_length=60)
+    logo_fill_required: bool = True
+    texts: list[str] = Field(default_factory=list, max_length=8)
+    #: 带定位信息的文字（box 相对体检裁切图）—— 文字兜底贴合用
+    text_stamps: list[TextStamp] = Field(default_factory=list, max_length=8)
+    shoe_count: int = Field(default=1, ge=0, le=50)
+
+    @field_validator("display_name", "brand", "model_name", "colorway", "logo_type", "logo_position", mode="before")
+    @classmethod
+    def _clean_text(cls, value: Any) -> str:
+        return "" if value is None else str(value).strip()
+
+    @field_validator("texts", mode="before")
+    @classmethod
+    def _clean_texts(cls, value: Any) -> list[str]:
+        if value is None:
+            return []
+        seen: list[str] = []
+        for item in value:
+            text = "" if item is None else str(item).strip()
+            if text and text not in seen:
+                seen.append(text)
+            if len(seen) >= 8:
+                break
+        return seen
+
+    @property
+    def logo_fill_hint(self) -> str:
+        """写进生图提示词的 Logo 填色描述（形状 + 位置）。"""
+        if not self.logo_type:
+            return ""
+        if self.logo_position:
+            return f"{self.logo_type}（{self.logo_position}）"
+        return self.logo_type
+
+    @property
+    def name_for_archive(self) -> str:
+        """归档标题用的默认名：品牌 + 型号，缺失时退回 display_name。"""
+        parts = [p for p in (self.brand, self.model_name) if p]
+        return " ".join(parts) or self.display_name
+
+
+class UploadTaskCreateIn(BaseModel):
+    """上传图生成（V2 输入方式）：图 + 裁切框 + 已体检结论。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    #: 原图 base64（可带 data:image/...;base64, 前缀）
+    image_base64: str = Field(min_length=32)
+    crop: CropBox
+    inspect: InspectHints = Field(default_factory=InspectHints)
+    style_id: str | None = Field(default=None, max_length=40)
+
+    @field_validator("style_id")
+    @classmethod
+    def _clean_style(cls, value: str | None) -> str | None:
+        return value.strip() or None if value is not None else None
+
+
 class RegenerateIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -183,6 +308,10 @@ class TaskRecord(BaseModel):
     trace_id: str = ""
     progress: dict[str, Any] = Field(default_factory=dict)
     history: list[dict[str, Any]] = Field(default_factory=list)
+    #: 上传图体检结论（V2）：Logo 填色要求、鞋身文字清单、归档命名来源
+    inspect: InspectHints | None = None
+    #: 文字兜底贴片（预处理阶段从原图裁出）：[{"box": [x,y,w,h], "path": "text_stamp_0.png"}, ...]
+    text_stamps: list[dict[str, Any]] = Field(default_factory=list)
 
 
 # --------------------------------------------------------------------------- 响应
@@ -211,6 +340,8 @@ class TaskOut(BaseModel):
     selected_index: int | None = None
     artworks: list[ArtworkOut] = Field(default_factory=list)
     current_artwork_url: str | None = None
+    #: CV 草稿（边缘骨架图）地址；AI 生成中用它做「扫过式揭示」动效。型号直出时为 None。
+    draft_url: str | None = None
     quality: dict[str, Any] = Field(default_factory=dict)
     error: dict[str, Any] | None = None
     upstream_calls: int = 0

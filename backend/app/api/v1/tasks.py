@@ -8,6 +8,9 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
+
 from fastapi import APIRouter, Depends, Request, Response
 
 from app.api.deps import current_identity, get_container
@@ -27,8 +30,9 @@ from app.schemas.task import (
     TaskError,
     TaskOut,
     TaskRecord,
+    UploadTaskCreateIn,
 )
-from app.services.cv.imageio import encode_png, open_image, validate_image_bytes
+from app.services.cv.imageio import crop_box, encode_png, open_image, shrink_image, validate_image_bytes
 from app.services.providers.base import CallRecorder
 from app.services.storage.task_store import TERMINAL_STATES
 from app.services.tools.archive_shoe import archive_shoe
@@ -40,7 +44,7 @@ from app.services.tools.search_shoe_image import (
 from app.services.workflow import hooks
 from app.services.auth.quota import consume_generation
 from app.services.workflow.journal import TraceWriter
-from app.services.workflow.runner import SOURCE_FILENAME
+from app.services.workflow.runner import EDGE_FILENAME, SOURCE_FILENAME
 from app.services.workflow.state_machine import transit
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
@@ -54,8 +58,23 @@ SYSTEM_ERROR_CODES = {
 }
 
 
+def _decode_upload_base64(data: str) -> bytes:
+    raw = data.split(",", 1)[1] if data.startswith("data:") and "," in data else data
+    try:
+        payload = base64.b64decode(raw, validate=False)
+    except (binascii.Error, ValueError) as exc:
+        raise AppError(ErrorCode.INVALID_INPUT, detail={"reason": "图片数据不是合法 base64"}) from exc
+    if len(payload) < 64:
+        raise AppError(ErrorCode.INVALID_INPUT, detail={"reason": "图片数据过短"})
+    return payload
+
+
 def _artwork_url(task_id: str, attempt: int) -> str:
     return f"/api/v1/tasks/{task_id}/artworks/{attempt}.png"
+
+
+def _draft_url(task_id: str) -> str:
+    return f"/api/v1/tasks/{task_id}/draft.png"
 
 
 def to_task_out(record: TaskRecord) -> TaskOut:
@@ -79,13 +98,19 @@ def to_task_out(record: TaskRecord) -> TaskOut:
         created_at=record.created_at,
         updated_at=record.updated_at,
         progress=record.progress,
-        normalize=record.resolve.model_dump() if record.resolve.normalized or not record.resolve.exists else None,
+        normalize=(
+            record.resolve.model_dump()
+            if (record.resolve.normalized or record.resolve.candidates)
+            else None
+        ),
         source_candidates=record.source.candidates,
         source_mode=record.source.mode,
         recommended_index=record.source.recommended_index,
         selected_index=record.source.selected_index,
         artworks=artworks,
         current_artwork_url=_artwork_url(record.task_id, current.attempt) if current else None,
+        # 走过预处理（有画布）才有 CV 草稿；型号直出没有
+        draft_url=_draft_url(record.task_id) if record.source.source_path else None,
         quality=record.quality.model_dump(),
         error=record.error.model_dump() if record.error else None,
         upstream_calls=record.upstream_calls,
@@ -180,6 +205,59 @@ def create_task(
     _schedule(container, owner_id, record.task_id)
 
     # 测试/内联模式下流水线已同步跑完，回读一次拿到最新状态（生产返回 searching_source）
+    return to_task_out(container.task_store.get(owner_id, record.task_id))
+
+
+@router.post("/upload", status_code=201, response_model=TaskOut)
+def create_upload_task(
+    payload: UploadTaskCreateIn, request: Request, owner_id: str = Depends(current_identity)
+) -> TaskOut:
+    """上传图生成（V2 输入方式）：图 + 裁切框 + 已体检结论。
+
+    与 ``POST /tasks`` 的分工：型号输入走「校对 → 搜图 → 确认源图」；
+    上传图在 ``POST /inspect`` 已经做完「裁切 → 体检 → 三档判定」，这里不再调用视觉模型，
+    只把用户确认过的裁切图存成源图，直接进入预处理（去背景 + 3:2 归一化）。
+    """
+    container = get_container(request)
+    settings = container.settings
+    style = container.styles.get(payload.style_id or settings.style_id)
+
+    # 额度：1 次生成 = 扣 1 次（体检另计，不在此列）
+    consume_generation(settings, container.invite_store, owner_id)
+
+    data = shrink_image(_decode_upload_base64(payload.image_base64), settings.max_upload_edge)
+    image = open_image(data)
+    cropped = crop_box(image, payload.crop.as_tuple())
+    png = encode_png(cropped.convert("RGB"))
+
+    name = payload.inspect.name_for_archive or payload.inspect.display_name or "上传的球鞋"
+    record = TaskRecord(
+        task_id=new_task_id(),
+        owner_id=owner_id,
+        state=S.PREPROCESSING,
+        created_at=now_iso(),
+        updated_at=now_iso(),
+        style_id=style.style_id,
+        query=name,
+        inspect=payload.inspect,
+        trace_id=new_trace_id(),
+    )
+    container.task_store.create(record)
+    container.asset_store.put_task_file(owner_id, record.task_id, SOURCE_FILENAME, png)
+    record.source.source_path = None
+    record.progress = {"step": "preprocessing", "label": "去背景 + 校正到 3:2 画布", "percent": 15}
+    container.task_store.save(record)
+
+    TraceWriter(container.backend, owner_id, record.task_id).write(
+        "upload_received",
+        display_name=payload.inspect.display_name,
+        logo_type=payload.inspect.logo_type,
+        logo_position=payload.inspect.logo_position,
+        texts=payload.inspect.texts,
+        crop=payload.crop.as_tuple(),
+    )
+
+    _schedule(container, owner_id, record.task_id)
     return to_task_out(container.task_store.get(owner_id, record.task_id))
 
 
@@ -341,6 +419,29 @@ def get_candidate_preview(
     )
 
 
+@router.get("/{task_id}/draft.png")
+def get_draft(
+    task_id: str, request: Request, owner_id: str = Depends(current_identity)
+) -> Response:
+    """CV 草稿（边缘骨架图）：生成 AI 稿期间给前端做「扫过式揭示」动效用。
+
+    它是预处理阶段纯 CV 抽出来的（约 1 秒、），不是最终交付物；
+    型号直出（无画布）的任务没有它，前端据此退回纯进度卡片。
+    """
+    container = get_container(request)
+    record = container.task_store.get(owner_id, task_id)
+    if record.source.use_model_only or not record.source.source_path:
+        raise AppError(ErrorCode.ARTWORK_NOT_FOUND, detail={"reason": "该任务没有 CV 草稿"})
+    key = container.asset_store.task_key(owner_id, task_id, EDGE_FILENAME)
+    if not container.asset_store.exists(key):
+        raise AppError(ErrorCode.ARTWORK_NOT_FOUND, detail={"reason": "草稿尚未生成"})
+    return Response(
+        content=container.asset_store.get(key),
+        media_type="image/png",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 @router.get("/{task_id}/artworks/{attempt}.png")
 def get_artwork(
     task_id: str, attempt: int, request: Request, owner_id: str = Depends(current_identity)
@@ -380,7 +481,9 @@ def archive_task(
         item = max(record.artworks, key=lambda a: (a.score or 0.0))
 
     artwork_png = container.asset_store.get(item.path)
-    model_name = (payload.model_name or record.resolve.normalized or record.query).strip()
+    # 上传图（V2）用体检识别的「品牌 + 型号」当默认标题；型号输入路径仍用校对结果
+    upload_name = record.inspect.name_for_archive if record.inspect else ""
+    model_name = (payload.model_name or upload_name or record.resolve.normalized or record.query).strip()
 
     transit(record, S.ARCHIVING, event="archive_start", detail={"attempt": item.attempt})
     record.progress = {"step": "archiving", "label": "归档中", "percent": 95}

@@ -22,6 +22,34 @@ RETRY_REINFORCEMENT = (
 )
 
 
+def _draw_hints_suffix(logo_fill: str | None, shoe_texts: list[str] | None) -> str:
+    """把「Logo 填色 + 鞋身文字 + 填色边界」追加进正向提示词。
+
+    与质检闸门（logo_filled / laces_solid_ratio / text_legible）呼应：
+    - Logo 标志性图形 → 纯黑实心填充（硬性）；
+    - 鞋身文字 → 尽力还原，但「宁缺勿错」（写错的字母比不写更伤纪念档案可信度）；
+    - 填色边界 → 只许填实小元素（Logo/鞋眼孔/透气孔），鞋带/中底/鞋面必须用轮廓线。
+    """
+    parts: list[str] = []
+    if logo_fill:
+        parts.append(
+            f"\n【Logo 填色】把「{logo_fill}」用纯黑实心块填充，不要只画空心轮廓，"
+            "形状必须清晰准确、不得简化变形。"
+        )
+    if shoe_texts:
+        joined = "」「".join(shoe_texts)
+        parts.append(
+            f"\n【鞋身文字】在鞋身对应位置清晰写出「{joined}」。"
+            "如果无法保证字母拼写正确，宁可省略该文字，也不要写错。"
+        )
+    if parts:
+        parts.append(
+            "\n【填色边界】只允许填实 Logo、鞋眼孔、透气孔等小元素；"
+            "鞋带、中底、鞋面必须用轮廓线/结构线表达，不得填成实心块。"
+        )
+    return "".join(parts)
+
+
 class ArkLineartGenerator:
     name = "ark"
     mode = "real"
@@ -40,6 +68,8 @@ class ArkLineartGenerator:
         recorder: CallRecorder,
         structure_reference: bytes | None = None,
         model_name: str | None = None,
+        logo_fill: str | None = None,
+        shoe_texts: list[str] | None = None,
     ) -> bytes:
         params = style.provider_params or {}
         size = str(params.get("size") or f"{self.settings.artwork_width}x{self.settings.artwork_height}")
@@ -49,6 +79,7 @@ class ArkLineartGenerator:
                 f"\n【画的款式】{model_name}。必须严格忠于这只鞋的实际款式与结构，"
                 "不得替换成同品牌的其他型号、不得凭想象增删部件。"
             )
+        positive += _draw_hints_suffix(logo_fill, shoe_texts)
         if canvas_png is None:
             positive += (
                 "\n【本次没有参考照片】请依据你对这款鞋的了解，画出它的正侧面线稿，"
