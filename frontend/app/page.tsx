@@ -17,7 +17,7 @@ import { PageShell } from "@/components/layout/PageShell";
 import { TopBar, type QuotaInfo } from "@/components/layout/TopBar";
 import { Alert } from "@/components/ui/Alert";
 import { Card } from "@/components/ui/Card";
-import { Dialog, DialogCloseButton, DialogContent, DialogTitle } from "@/components/ui/Dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/Dialog";
 import { LoginScreen } from "@/features/auth/components/LoginScreen";
 import { useCabinet } from "@/features/cabinet/hooks/useCabinet";
 import { ShoeDetailDialog } from "@/features/cabinet/components/ShoeDetailDialog";
@@ -171,9 +171,7 @@ export default function CabinetPage() {
         <PageShell className="!pt-6 !pb-8 sm:!pt-8 sm:!pb-10">
           <p className="display-upper text-[12.5px] text-accent">MY SHOE CABINET</p>
           <h1 className="display-upper mt-2 text-[30px] text-white sm:text-[34px]">鞋历</h1>
-          <p className="mt-2 max-w-[560px] text-[15px] leading-snug text-accent">
-            收藏的不只是球鞋，是走过的日子。
-          </p>
+          {/* slogan 已在顶栏出现一次，这里不再重复（2026-09-23 反馈） */}
           <p className="mt-2 max-w-[560px] text-[13.5px] leading-relaxed text-muted">
             上传一张您那双鞋的照片，它会变成一张黑白线稿，收进您的鞋柜。
           </p>
@@ -309,27 +307,33 @@ export default function CabinetPage() {
                 />
               ) : null}
 
-              {archiving && task.state === "awaiting_effect_confirm" ? (
-                <ArchiveForm
+              {archiving && task.artworks.length > 0 ? (
+                <Dialog open onOpenChange={(open) => (open ? setArchiving(true) : setArchiving(false))}>
+                  <DialogContent className="fixed left-1/2 top-1/2 z-50 max-h-[92vh] w-[calc(100vw-1.5rem)] max-w-[560px] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[14px] border border-line bg-[var(--color-surface)] p-5 text-[var(--color-ink)] shadow-2xl sm:p-6">
+                    <DialogTitle className="sr-only">归档进鞋柜</DialogTitle>
+                    <ArchiveForm
                   modelName={task.normalize?.normalized ?? task.query}
                   busy={flow.busy}
-                  onSubmit={async (payload) => {
-                    const result = await flow.archive(payload);
-                    setArchiving(false);
-                    if (result) {
-                      track("archived", { has_date: Boolean(payload.date_text), has_story: Boolean(payload.story) });
-                      setToast("已归档进鞋柜");
-                    }
-                  }}
-                  onSkip={async () => {
-                    const result = await flow.archive({});
-                    setArchiving(false);
-                    if (result) {
-                      track("archived", { has_date: false, has_story: false, skipped: true });
-                      setToast("已归档进鞋柜");
-                    }
-                  }}
-                />
+                        onSubmit={async (payload) => {
+                          const result = await flow.archive(payload);
+                          setArchiving(false);
+                          if (result) {
+                            track("archived", { has_date: Boolean(payload.date_text), has_story: Boolean(payload.story) });
+                            setToast("已归档进鞋柜");
+                          }
+                        }}
+                      onSkip={async () => {
+                        const result = await flow.archive({});
+                        setArchiving(false);
+                        if (result) {
+                          track("archived", { has_date: false, has_story: false, skipped: true });
+                          setToast("已归档进鞋柜");
+                        }
+                      }}
+                      onCancel={() => setArchiving(false)}
+                    />
+                  </DialogContent>
+                </Dialog>
               ) : null}
 
               {task.state === "interrupted" || task.state === "failed" ? (
@@ -397,15 +401,19 @@ export default function CabinetPage() {
         onNavigate={(nextId) => setDetailShoeId(nextId)}
       />
 
-      {/* 归档成功提示（不阻塞主流程） */}
+      {/* 归档成功提示：非模态轻提示，不挡操作、也没有会和文字重叠的关闭按钮 */}
       {toast ? (
-        <Dialog open>
-          <DialogContent className="fixed bottom-6 left-1/2 z-50 w-auto max-w-[92vw] -translate-x-1/2 rounded-full border border-line bg-[var(--color-surface)] px-5 py-3 text-[14px] text-[var(--color-ink)] shadow-2xl">
-            <DialogTitle className="sr-only">提示</DialogTitle>
-            <span>{toast}</span>
-            <DialogCloseButton />
-          </DialogContent>
-        </Dialog>
+        <div
+          role="status"
+          aria-live="polite"
+          data-theme="card-paper"
+          className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border border-line bg-[var(--color-surface)] px-5 py-3 text-[14px] text-[var(--color-ink)] shadow-2xl"
+        >
+          <span className="text-[#2f7d4f]" aria-hidden>
+            ✓
+          </span>
+          <span>{toast}</span>
+        </div>
       ) : null}
     </div>
   );

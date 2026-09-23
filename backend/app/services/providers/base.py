@@ -191,6 +191,7 @@ class LineartGenerator(Protocol):
         model_name: str | None = None,
         logo_fill: str | None = None,
         shoe_texts: list[str] | None = None,
+        avoid_logo: bool = False,
     ) -> bytes: ...
 
 

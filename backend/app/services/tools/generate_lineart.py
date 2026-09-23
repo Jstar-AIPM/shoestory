@@ -22,6 +22,7 @@ def generate_lineart(
     model_name: str | None = None,
     logo_fill: str | None = None,
     shoe_texts: list[str] | None = None,
+    avoid_logo: bool = False,
 ) -> bytes:
     return generator.generate(
         canvas_png=canvas_bytes,
@@ -32,4 +33,5 @@ def generate_lineart(
         model_name=model_name,
         logo_fill=logo_fill,
         shoe_texts=shoe_texts,
+        avoid_logo=avoid_logo,
     )

@@ -276,6 +276,8 @@ class QualityInfo(BaseModel):
     verdict: str | None = None
     best_attempt: int | None = None
     artwork_check: dict[str, Any] = Field(default_factory=dict)
+    #: 给用户看的一句话说明（自检没完全通过时，只有这一句会外显；详细检查项仅供后台排查）
+    note: str = ""
 
 
 class TaskError(BaseModel):

@@ -64,7 +64,7 @@ def test_quota_consumed_on_create_and_manual_regenerate_only(client_factory) -> 
         task_id = created.json()["task_id"]
         client.post(f"/api/v1/tasks/{task_id}/source", json={"use_model_only": True})
         final = client.get(f"/api/v1/tasks/{task_id}").json()
-        assert final["state"] == "failed" and len(final["artworks"]) == 2  # 内部画了 2 张
+        assert final["state"] == "awaiting_effect_confirm" and len(final["artworks"]) == 2  # 内部画了 2 张
 
         remaining = client.get("/api/v1/auth/me").json()["remaining"]
         assert remaining == 19  # 只扣 1 次

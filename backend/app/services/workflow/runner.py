@@ -200,6 +200,11 @@ class PipelineRunner:
                     model_name=record.resolve.normalized or record.query,
                     logo_fill=record.inspect.logo_fill_hint if record.inspect else None,
                     shoe_texts=record.inspect.texts if record.inspect else None,
+                    # 体检没看到品牌标识（或标记为"无需填实"）→ 明确禁止编造 Logo
+                    avoid_logo=bool(
+                        record.inspect
+                        and (not record.inspect.logo_type or not record.inspect.logo_fill_required)
+                    ),
                 )
                 self.asset_store.put_task_file(owner_id, task_id, f"raw_a{attempt}.png", raw)
 
@@ -299,47 +304,40 @@ class PipelineRunner:
                 return
 
             if record.attempts.used_in_round >= max_attempts:
-                style_blocked = result.style_blocked
-                # 文案得对得上用户走的路径：上传图没有"候选图"可换（V1 时代的话术）
-                if record.inspect is not None:
-                    style_message = (
-                        "这张照片画出来的线稿不符合风格要求（例如画面出现排线/素描笔触，"
-                        "或把中底、鞋面涂成了大块黑色）——建议换一张更清晰的正侧面图重传。"
-                    )
-                    style_suggestion = "重新上传一张正侧面图"
-                else:
-                    style_message = (
-                        "这张参考图可能不适合做线稿（例如是两只鞋的合影、角度不是正侧面、"
-                        "或本身就是深色鞋）——建议换一张候选图再试。"
-                    )
-                    style_suggestion = "换一张候选参考图"
-                self._fail(
+                # 产品原则（2026-09-23 产品反馈）：**不要 dead-end**。
+                # 只要画出了至少一张，就把它交给用户裁决（满意归档 / 重新画）——
+                # 以前这里直接把任务判 failed，用户连图都看不到（而文案还写着"已交给您裁决"，自相矛盾）。
+                # 真正无图可交（上游报错等）的情况依旧走 _fail。
+                note = self._user_note(result)
+                record.quality = record.quality.model_copy(update={"note": note})
+                record.error = None
+                trace.write(
+                    "delivered_below_threshold",
+                    attempt=best.attempt,
+                    score=best.score,
+                    style_blocked=result.style_blocked,
+                    note=note,
+                )
+                self._set_state(
                     record,
-                    AppError(
-                        ErrorCode.VERIFY_FAILED,
-                        message=(
-                            style_message
-                            if style_blocked
-                            else (
-                                f"连续 {max_attempts} 次质检都没通过，已把最接近的一张交给您裁决。"
-                                f"原因：{'；'.join(result.issues[:2]) or '内容质量未达标准'}"
-                            )
-                        ),
-                        detail={
-                            "issues": result.issues,
-                            "best_attempt": best.attempt,
-                            "style_ok": result.style_ok,
-                            "style_blocked": result.style_blocked,
-                            "style_metrics": result.style_metrics,
-                            "suggestion": style_suggestion if style_blocked else None,
-                        },
-                    ),
-                    trace,
+                    S.AWAITING_EFFECT_CONFIRM,
+                    "quality_below_threshold",
+                    {"attempt": best.attempt, "score": best.score},
                     recorder,
                 )
                 return
 
     # ------------------------------------------------------------------ 步骤
+    @staticmethod
+    def _user_note(result) -> str:
+        """给用户看的一句话：自检没完全通过（**不含质检细节** —— 产品反馈：细节不外显）。
+
+        细节仍在 ``quality.issues`` / ``quality.checks`` 里，供后台排查与将来做统计。
+        """
+        if result.style_blocked:
+            return "这张的线条风格没完全达到标准，您可以先收下，或再画一次。"
+        return "这张没完全达到我们的标准，您可以先收下，或再画一次。"
+
     def _prepare_source(
         self, record: TaskRecord, recorder: CallRecorder, trace: TraceWriter
     ) -> None:

@@ -2,7 +2,9 @@
 
 /**
  * 归档表单（时间 / 故事，均可跳过）
- * 时间框实时显示后端解析出的排序键 —— 让"自由文本"的排序规则对用户可见（前端工程约定 13.1）。
+ *
+ * 现在**以弹窗形式**出现（2026-09-23 反馈：以前挂在页面下方，点「满意归档」像没反应）。
+ * 时间框只给"人话"反馈（如「识别为 2021年6月」），不露排序键。
  */
 import { useEffect, useState } from "react";
 
@@ -16,11 +18,13 @@ export function ArchiveForm({
   busy,
   onSubmit,
   onSkip,
+  onCancel,
 }: {
   modelName: string;
   busy: boolean;
   onSubmit: (payload: { date_text: string | null; story: string | null }) => void;
   onSkip: () => void;
+  onCancel?: () => void;
 }) {
   const [date, setDate] = useState("");
   const [story, setStory] = useState("");
@@ -47,10 +51,10 @@ export function ArchiveForm({
   }, [date]);
 
   return (
-    <Card className="px-5 py-5 sm:px-6">
-      <h2 className="text-[17px] font-semibold text-ink">给「{modelName}」记一笔（选填）</h2>
+    <Card className="border-0 px-0 py-0 shadow-none">
+      <h2 className="pr-16 text-[17px] font-semibold text-ink">给「{modelName}」记一笔</h2>
       <p className="mt-2 text-[13px] text-muted">
-        时间怎么写都行；故事只有您自己能看到。两项都可以跳过。
+        时间怎么写都行；故事只有您自己能看到。两项都可以跳过，之后也能补。
       </p>
 
       <div className="mt-4 space-y-4">
@@ -97,6 +101,15 @@ export function ArchiveForm({
         <Button variant="ghost" onClick={onSkip} disabled={busy}>
           跳过，直接归档
         </Button>
+        {onCancel ? (
+          <button
+            onClick={onCancel}
+            disabled={busy}
+            className="h-11 rounded-full px-5 text-[14px] text-muted hover:text-ink disabled:opacity-50"
+          >
+            取消
+          </button>
+        ) : null}
       </div>
     </Card>
   );

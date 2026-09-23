@@ -22,19 +22,32 @@ RETRY_REINFORCEMENT = (
 )
 
 
-def _draw_hints_suffix(logo_fill: str | None, shoe_texts: list[str] | None) -> str:
+def _draw_hints_suffix(
+    logo_fill: str | None, shoe_texts: list[str] | None, *, avoid_logo: bool = False
+) -> str:
     """把「Logo 填色 + 鞋身文字 + 填色边界」追加进正向提示词。
 
     与质检闸门（logo_filled / laces_solid_ratio / text_legible）呼应：
     - Logo 标志性图形 → 纯黑实心填充（硬性）；
     - 鞋身文字 → 尽力还原，但「宁缺勿错」（写错的字母比不写更伤纪念档案可信度）；
     - 填色边界 → 只许填实小元素（Logo/鞋眼孔/透气孔），鞋带/中底/鞋面必须用轮廓线。
+
+    ⚠️ 2026-09-23 线上实测（AJ36）：照片那个角度看不到飞人 Logo，模型于是**编了一个装饰性符号**，
+    质检正确地判它"Logo 不对" → 整单失败、白烧两次生成。
+    所以 logo_fill 与 avoid_logo 必须二选一：原图看得见才要求填，看不见就明确禁止编造。
     """
     parts: list[str] = []
     if logo_fill:
         parts.append(
             f"\n【Logo 填色】把「{logo_fill}」用纯黑实心块填充，不要只画空心轮廓，"
-            "形状必须清晰准确、不得简化变形。"
+            "形状必须清晰准确、不得简化变形；"
+            "**只画原图里确实能看到的那一处标识**，不得添加原图里没有的品牌标识。"
+        )
+    elif avoid_logo:
+        parts.append(
+            "\n【不要编造 Logo】这张原图的角度看不到明确的品牌标识："
+            "请**不要**凭空添加任何品牌 Logo（钩形/飞人/三道杠等），也不要用无穷符号、"
+            "装饰图形等代替；那个位置按原鞋的结构线如实表达即可。"
         )
     if shoe_texts:
         joined = "」「".join(shoe_texts)
@@ -70,6 +83,7 @@ class ArkLineartGenerator:
         model_name: str | None = None,
         logo_fill: str | None = None,
         shoe_texts: list[str] | None = None,
+        avoid_logo: bool = False,
     ) -> bytes:
         params = style.provider_params or {}
         size = str(params.get("size") or f"{self.settings.artwork_width}x{self.settings.artwork_height}")
@@ -79,7 +93,7 @@ class ArkLineartGenerator:
                 f"\n【画的款式】{model_name}。必须严格忠于这只鞋的实际款式与结构，"
                 "不得替换成同品牌的其他型号、不得凭想象增删部件。"
             )
-        positive += _draw_hints_suffix(logo_fill, shoe_texts)
+        positive += _draw_hints_suffix(logo_fill, shoe_texts, avoid_logo=avoid_logo)
         if canvas_png is None:
             positive += (
                 "\n【本次没有参考照片】请依据你对这款鞋的了解，画出它的正侧面线稿，"

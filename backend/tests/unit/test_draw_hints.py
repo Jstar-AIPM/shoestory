@@ -42,3 +42,25 @@ def test_texts_only_does_not_claim_logo() -> None:
     suffix = _draw_hints_suffix(None, ["AIR", "ZOOM"])
     assert "AIR" in suffix and "ZOOM" in suffix
     assert "Logo 填色" not in suffix
+
+
+# ---------------- 原图看不到品牌标识时：禁止编造 Logo（2026-09-23 线上实测修正）----------------
+# 背景：AJ36 那个角度拍不到飞人 Logo，模型于是编了个装饰性符号，质检正确地判它"Logo 不对"→ 整单失败。
+# 结论：logo_fill 与 avoid_logo 必须二选一 —— 看得见才要求填，看不见就明确禁止编造。
+
+
+def test_avoid_logo_forbids_inventing_a_brand_mark() -> None:
+    suffix = _draw_hints_suffix(None, None, avoid_logo=True)
+    assert "不要" in suffix and "Logo" in suffix
+    assert "不要凭空添加" in suffix or "凭空" in suffix
+    assert "装饰" in suffix, "要明确禁止用装饰图形代替品牌标识"
+
+
+def test_logo_fill_says_only_draw_what_is_visible() -> None:
+    suffix = _draw_hints_suffix("耐克勾形（鞋身两侧）", None)
+    assert "只画原图里确实能看到的那一处" in suffix or "不得添加原图里没有的品牌标识" in suffix
+
+
+def test_nothing_visible_and_no_flag_keeps_suffix_silent() -> None:
+    """没给 Logo 信息、也没要求避免编造时，不要凭空加一段劝导（保持提示词稳定）。"""
+    assert _draw_hints_suffix(None, None) == ""

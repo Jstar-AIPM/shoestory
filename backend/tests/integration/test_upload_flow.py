@@ -303,3 +303,65 @@ def test_upload_bad_base64_rejected(api: TestClient) -> None:
     )
     assert response.status_code in (400, 422), response.text
     assert "INVALID_INPUT" in response.text or "校验" in response.text
+
+
+def _upload_with_inspect(api: TestClient, inspect: dict) -> dict:
+    image = _shoe_png_base64()
+    crop = {"x": 150, "y": 450, "w": 800, "h": 450}
+    return api.post(
+        "/api/v1/tasks/upload",
+        json={"image_base64": image, "crop": crop, "inspect": inspect},
+    ).json()
+
+
+def _spy_generator(api: TestClient, monkeypatch) -> dict:
+    """抓住传给生图模型的参数（用来断言"要不要要求/禁止画 Logo"）。"""
+    generator = api.app.state.container.providers.generator
+    original = generator.generate
+    seen: dict = {}
+
+    def spy(**kwargs):  # noqa: ANN001
+        seen.update(kwargs)
+        return original(**kwargs)
+
+    monkeypatch.setattr(generator, "generate", spy)
+    return seen
+
+
+def test_upload_with_visible_logo_asks_for_solid_fill(api: TestClient, monkeypatch) -> None:
+    seen = _spy_generator(api, monkeypatch)
+    _upload_with_inspect(
+        api,
+        {
+            "display_name": "Nike Air Force 1",
+            "brand": "Nike",
+            "model_name": "Air Force 1",
+            "logo_type": "耐克勾形",
+            "logo_position": "鞋身两侧",
+            "logo_fill_required": True,
+            "texts": ["AIR"],
+        },
+    )
+    assert seen["avoid_logo"] is False
+    assert "耐克勾形" in (seen["logo_fill"] or "")
+    assert seen["shoe_texts"] == ["AIR"]
+
+
+def test_upload_without_visible_logo_forbids_inventing_one(api: TestClient, monkeypatch) -> None:
+    """回归（线上 AJ36 实测）：原图那个角度看不到品牌标识时，必须明确禁止编造 Logo。
+
+    以前照样要求"把 Logo 填实"，模型于是编了个装饰符号，质检判它错 → 整单失败、白烧两次生成。
+    """
+    seen = _spy_generator(api, monkeypatch)
+    _upload_with_inspect(
+        api,
+        {
+            "display_name": "Jordan Air Jordan 36",
+            "brand": "Jordan",
+            "model_name": "Air Jordan 36",
+            "logo_type": "",  # 体检没看到品牌标识
+            "texts": [],
+        },
+    )
+    assert seen["avoid_logo"] is True
+    assert not seen["logo_fill"]

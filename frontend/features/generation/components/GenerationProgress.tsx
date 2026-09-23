@@ -15,8 +15,12 @@ import type { TaskOut } from "@/lib/api/types";
 
 import { DraftMosaic } from "./DraftMosaic";
 
+/** 草稿出现前的等待（秒）：草稿算得很快，立刻显示会让人以为"就这么糊"、然后干等半天（2026-09-23 反馈）*/
+const DRAFT_REVEAL_DELAY_MS = 6000;
+
 export function GenerationProgress({ task }: { task: TaskOut }) {
   const [elapsed, setElapsed] = useState(0);
+  const [draftRevealed, setDraftRevealed] = useState(false);
 
   useEffect(() => {
     const started = Date.now();
@@ -24,18 +28,26 @@ export function GenerationProgress({ task }: { task: TaskOut }) {
     return () => clearInterval(timer);
   }, [task.task_id, task.progress?.step]);
 
+  // 草稿延后出现：先让人看到"正在准备"，等几秒再以渐显的方式把草稿推上来
+  useEffect(() => {
+    if (!task.draft_url) return;
+    const timer = setTimeout(() => setDraftRevealed(true), DRAFT_REVEAL_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [task.task_id, task.draft_url]);
+
   const percent = Math.max(0, Math.min(100, task.progress?.percent ?? 0));
   const label = task.progress?.label ?? "正在处理";
   const interrupted = task.state === "interrupted";
-  const draftReady = Boolean(task.draft_url);
+  const draftReady = Boolean(task.draft_url) && draftRevealed;
 
   const statusLabel = interrupted ? "服务重启了，任务已暂停（进度都还在）" : label;
+  const waitingForDraft = Boolean(task.draft_url) && !draftRevealed;
 
   return (
     <div className="mx-auto w-full max-w-[720px] space-y-3">
       {draftReady ? (
         <>
-          <div className="draft-sheet relative overflow-hidden rounded-[var(--radius-card)] border border-line">
+          <div className="draft-sheet draft-appear relative overflow-hidden rounded-[var(--radius-card)] border border-line">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={task.draft_url ?? ""}
@@ -64,6 +76,18 @@ export function GenerationProgress({ task }: { task: TaskOut }) {
                 正式线稿正在精修，完成后会自动替换。
               </>
             )}
+          </p>
+        </>
+      ) : waitingForDraft ? (
+        <>
+          <div className="draft-sheet draft-appear relative overflow-hidden rounded-[var(--radius-card)] border border-line">
+            <div className="frame-3x2 flex items-center justify-center">
+              <span className="text-[13px] text-[#6b6b66]">正在准备画面…</span>
+            </div>
+          </div>
+          <StatusBar label={statusLabel} percent={percent} meta={`已用时 ${elapsed} 秒`} pulse={!interrupted} />
+          <p className="text-center text-[12.5px] leading-relaxed text-faint">
+            约 5–10 秒后会先给您看一版草稿，正式线稿随后替换它。
           </p>
         </>
       ) : (

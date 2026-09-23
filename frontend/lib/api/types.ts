@@ -119,6 +119,8 @@ export type Quality = {
   issues: string[];
   verdict: string | null;
   best_attempt: number | null;
+  /** 自检没完全通过时给用户看的一句话（不含细节；细节在 checks/issues 里，仅内部用） */
+  note: string;
 };
 
 export type TaskOut = {

@@ -168,3 +168,14 @@ def test_repo_root_ignore_does_not_hit_backend_prompts() -> None:
     patterns = _ignore_patterns(ignore)
     for relative in ("backend/app/services/prompts/resolve_model.md",):
         assert not _would_be_excluded(patterns, relative)
+
+
+def test_verify_prompt_judges_logo_against_what_is_visible() -> None:
+    """规则钉死（2026-09-23 线上误杀后加的）：Logo 只按"参考图里看得见的"判。
+
+    AJ36 那次，照片角度看不到飞人 Logo，却被扣 logo_legibility/logo_filled → 整单失败、白烧两次生成。
+    """
+    text = (PROMPTS_DIR / "verify_lineart.md").read_text(encoding="utf-8")
+    assert "图1 里实际看得见的" in text
+    assert "看不到标识时给 1.0" in text
+    assert "不要因为" in text and "飞人" in text

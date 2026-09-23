@@ -163,13 +163,15 @@ def test_regenerate_requires_effect_confirm_state(client: TestClient) -> None:
 
 
 def test_archive_allowed_after_failed_quality_takes_best(client_factory) -> None:
+    """质检没过也要能归档（用户裁决）：不再 dead-end。"""
     with client_factory(mock_quality="low") as low_client:
         task = run_to_artwork(low_client, "kd12")
-        assert task["state"] == "failed"
-        assert task["error"]["code"] == "VERIFY_FAILED"
+        assert task["state"] == "awaiting_effect_confirm"
+        assert task["quality"]["verdict"] == "fail"
         # 默认内部最多 2 张：第 1 张不合格会自动补 1 张，仍不过则交用户裁决
         assert len(task["artworks"]) == 2
         assert task["quality"]["best_attempt"] is not None
+        assert task["error"] is None
         # 用户裁决：“就这张，归档”
         created = archive_task(low_client, task["task_id"])
         assert created["shoe_id"]

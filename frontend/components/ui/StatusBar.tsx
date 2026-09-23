@@ -40,7 +40,7 @@ export function StatusBar({
       <span
         aria-hidden
         className={`h-1.5 w-1.5 shrink-0 rounded-full ${pulse ? "animate-pulse" : ""} ${
-          tone === "paper" ? "bg-[#5865f2]" : "bg-[#57f287]"
+          tone === "paper" ? "bg-[#5865f2]" : "bg-success"
         }`}
       />
       <p className="status-bar__label truncate">{label}</p>

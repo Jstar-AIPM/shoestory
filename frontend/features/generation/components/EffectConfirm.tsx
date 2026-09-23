@@ -1,27 +1,16 @@
 "use client";
 
 /**
- * 效果确认：画稿挂在"墙上"（深色底更像装裱作品），
- * 质检与操作放在"纸上"（易读、可长按阅读）。
- * 三个选项语义化：满意归档 / 重新生成 / 重新输入（前端工程约定 11.1）。
+ * 效果确认：画稿挂在"墙上"（深色底更像装裱作品），操作放在"纸上"。
+ *
+ * 三个选择：满意收进鞋柜 / 不满意重新画 / 换一张图。
+ * ⚠️ 质检细节（分项分数、问题清单）**不对外显示**（2026-09-23 产品反馈）：
+ * 用户只需要判断"满不满意"；质检仍在内部照常执行，明细留在接口与轨迹里备查。
  */
-import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusBar } from "@/components/ui/StatusBar";
-import { StatusChip } from "@/components/ui/StatusChip";
 import type { TaskOut } from "@/lib/api/types";
-
-const CHECK_LABELS: Record<string, string> = {
-  shoe_silhouette_match: "鞋型吻合",
-  logo_legibility: "Logo 可辨识",
-  style_consistency: "风格一致",
-  noise_level: "画面干净",
-  canvas_ratio: "画布规格",
-  logo_filled: "Logo 填实",
-  laces_solid_ratio: "鞋带实心度",
-  text_legible: "文字可辨",
-};
 
 export function EffectConfirm({
   task,
@@ -60,45 +49,19 @@ export function EffectConfirm({
         {/* 状态条紧贴画稿下方（原来在顶栏，离用户看的东西太远） */}
         <div className="mt-3">
           <StatusBar
-            label={passed ? "画好了，等您确认后收进鞋柜" : "画好了，但自检有疑虑，您可以再画一次"}
-            meta={`质检 ${quality.score != null ? quality.score.toFixed(3) : "—"}`}
+            label={passed ? "画好了，等您确认后收进鞋柜" : quality.note || "画好了，等您确认后收进鞋柜"}
             pulse={false}
           />
         </div>
       </div>
 
-      {/* 纸上：质检 + 操作 */}
+      {/* 纸上：只留「满意 / 不满意」两个选择。
+          质检细节（分项打分与问题清单）**不外显** —— 内部照常执行，结果留在接口与日志里备查（2026-09-23 反馈）。 */}
       <Card className="px-5 py-5 sm:px-6">
-        <div className="flex flex-wrap items-center gap-2.5">
-          <StatusChip tone={passed ? "success" : "warn"}>
-            质检 {quality.score != null ? quality.score.toFixed(3) : "—"}（阈值 0.80）
-          </StatusChip>
-          <StatusChip tone="neutral">第 {task.artworks.at(-1)?.attempt ?? 1} 次尝试</StatusChip>
-          {!passed ? <StatusChip tone="danger">未达到交付标准</StatusChip> : null}
-        </div>
-
-        {quality.checks && Object.keys(quality.checks).length > 0 ? (
-          <ul className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-[13px] text-muted sm:grid-cols-3">
-            {Object.entries(quality.checks).map(([key, value]) => (
-              <li key={key} className="flex items-center justify-between gap-2">
-                <span>{CHECK_LABELS[key] ?? key}</span>
-                <span className="font-mono text-ink">{typeof value === "number" ? value.toFixed(2) : String(value)}</span>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-
-        {quality.issues?.length ? (
-          <div className="mt-4">
-            <Alert tone={passed ? "warn" : "danger"} title="质检给出的问题">
-              <ul className="mt-1 list-disc space-y-1 pl-4">
-                {quality.issues.slice(0, 5).map((issue) => (
-                  <li key={issue}>{issue}</li>
-                ))}
-              </ul>
-            </Alert>
-          </div>
-        ) : null}
+        <h2 className="text-[17px] font-semibold text-ink">这张您满意吗？</h2>
+        <p className="mt-2 text-[13.5px] leading-relaxed text-muted">
+          满意就收进鞋柜；不满意可以再画一张（会重新消耗 1 次生成额度，上一张留在历史里可对比）。
+        </p>
 
         <div className="mt-5 flex flex-wrap items-center gap-2">
           <Button
@@ -107,18 +70,15 @@ export function EffectConfirm({
             onClick={onArchive}
             disabled={busy || !task.can?.archive}
           >
-            满意，归档
+            满意，收进鞋柜
           </Button>
           <Button variant="secondary" onClick={onRegenerate} disabled={busy || !task.can?.regenerate}>
-            重新生成
+            不满意，重新画
           </Button>
           <Button variant="ghost" onClick={onReset}>
-            重新输入
+            换一张图
           </Button>
         </div>
-        <p className="mt-2.5 text-[12.5px] text-faint">
-          「重新生成」会保留型号与参考图，并消耗 1 次生成额度；上一张会留在历史里可对比。
-        </p>
 
         {history.length > 0 ? (
           <details className="mt-4">

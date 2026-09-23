@@ -127,7 +127,7 @@ body {
   --color-faint: #8b8fc7;
 
   --color-accent: #a5adff;
-  --color-success: #57f287;
+  --color-success: #4ec98a;
   --color-warn: #faa220;
   --color-danger: #de2761;
 
@@ -148,6 +148,10 @@ body {
   --color-faint: #a3a29c;
   /* 白卡上的档案信息（时间）用 blurple，深底/白底都可读 */
   --color-accent: #5865f2;
+  /* 卡内的状态色必须自己定义：否则会继承墙面那套亮色，在白底上又荧光又难读（2026-09-23 反馈） */
+  --color-success: #2f7d4f;
+  --color-warn: #9a6b16;
+  --color-danger: #a32a1f;
   --radius-card: 10px;
 }
 
@@ -296,6 +300,15 @@ body {
   color: #4b53c9;
   box-shadow: 0 1px 6px rgba(10, 11, 30, 0.08);
 }
+/* 草稿渐显（延后出现时不要"啪"地跳出来） */
+@keyframes draft-appear {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.draft-appear {
+  animation: draft-appear 1.4s ease-out both;
+}
+
 /* 马赛克「正在生成」动效：canvas 叠在草稿上，随机格子亮一下再稳定下来 */
 .draft-mosaic {
   position: absolute;
@@ -316,12 +329,14 @@ body {
   border: 1px solid var(--color-line, rgba(255, 255, 255, 0.12));
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.06);
+  color: var(--color-ink);
   padding: 7px 14px;
   font-size: 12.5px;
 }
 .status-bar__label {
   font-weight: 600;
   white-space: nowrap;
+  color: var(--color-ink);
 }
 .status-bar__track {
   flex: 1;
@@ -341,8 +356,18 @@ body {
   color: var(--color-faint, rgba(255, 255, 255, 0.5));
   white-space: nowrap;
 }
-/* 纸白卡片里的状态条（体检/裁切阶段用）：换成浅色描边 */
+/* 纸白卡片里的状态条：浅色描边 + 深色文字（以前只换了底色，字还是浅的，看不清） */
 .status-bar--paper {
   border-color: var(--color-line, #e5e0d5);
-  background: rgba(10, 11, 30, 0.03);
+  background: rgba(10, 11, 30, 0.035);
+  color: #111111;
+}
+.status-bar--paper .status-bar__label {
+  color: #111111;
+}
+.status-bar--paper .status-bar__meta {
+  color: #6b6b66;
+}
+.status-bar--paper .status-bar__track {
+  background: rgba(10, 11, 30, 0.12);
 }
