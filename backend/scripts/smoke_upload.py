@@ -63,6 +63,7 @@ def run_flow(
     poll_timeout: float,
     archive: bool,
     forced_mock: bool = False,
+    args_has_crop: bool = False,
 ) -> dict:
     report: dict = {"image": str(image_path), "steps": [], "checks": {}}
 
@@ -81,6 +82,15 @@ def run_flow(
     response.raise_for_status()
     first = response.json()
     step("体检·CV 定位（本机计算）", started, tier=first["tier"], subject=first["subject"])
+
+    if first["tier"] == "multi" and crop_arg is None and not args_has_crop:
+        report["conclusion"] = "需要人工框选（未通过）"
+        report["reason"] = (
+            f"CV 判定图里有多个候选主体（count={first['subject']['count']}）——"
+            "可能是列表页/带 App 界面，也可能是背景干扰。自动建议框在这种情况下不可信，"
+            "本脚本不替用户猜：请用 --crop x,y,w,h 指定裁切框后重跑。"
+        )
+        return report
 
     reported = f"{first['image']['width']}x{first['image']['height']}"
     report["checks"]["size_contract"] = reported == f"{expect_w}x{expect_h}"
@@ -409,7 +419,13 @@ def main() -> int:
                 login.raise_for_status()
                 print(f"已登录：{login.json().get('message')}")
             report = run_flow(
-                client, image_path, crop, args.poll_timeout, not args.no_archive, args.force_mock
+                client,
+                image_path,
+                crop,
+                args.poll_timeout,
+                not args.no_archive,
+                args.force_mock,
+                bool(args.crop),
             )
     finally:
         if server is not None:

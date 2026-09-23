@@ -29,6 +29,13 @@ CROP_MARGIN = (0.12, 0.15)
 #: 判定"一家独大"的倍数：最大候选 ≥ 次大者该倍数时，认为其余是缩略图/推荐位
 DOMINANT_RATIO = 2.0
 
+#: 近白（商品图底）判据：明度高 + 饱和度低
+LIGHT_VALUE_MIN = 200
+LIGHT_SAT_MAX = 40
+#: 界面深色栏（状态栏 / 底部价格栏）判据：几乎全暗、几乎没有亮底
+CHROME_DARK_RATIO = 0.85
+CHROME_LIGHT_RATIO = 0.15
+
 
 @dataclass(frozen=True)
 class Subject:
@@ -66,17 +73,61 @@ def _components(mask: np.ndarray) -> list[Subject]:
     return sorted(out, key=lambda s: -s.area)
 
 
+def _light_mask(rgb: np.ndarray) -> np.ndarray:
+    """近白掩码（商品图的浅色底）—— 用来区分「商品图区域」与「App 深色界面」"""
+    hsv = cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV)
+    return (hsv[:, :, 2] >= LIGHT_VALUE_MIN) & (hsv[:, :, 1] <= LIGHT_SAT_MAX)
+
+
+def is_ui_chrome(rgb: np.ndarray, subject: Subject) -> bool:
+    """这块候选到底是鞋，还是 App 的**深色界面栏**（状态栏 / 底部价格栏）？
+
+    ## 为什么必须区分（2026-09-23 线上真图冒烟实测）
+    一张得物商品页截图（1260×2736）里，面积最大的两个"像鞋"候选其实是：
+    顶部状态栏（暗占比 0.988）与底部规格/价格栏（暗占比 0.904）——
+    结果 CV 把建议框给了价格栏，视觉模型正确地回了一句
+    「我看到的更像「电商商品规格选择页」」→ 链路在体检这步就断了。
+
+    判据（实测取值）：候选框内"暗像素 ≥ 85% 且亮像素 ≤ 15%"→ 界面栏。
+    鞋的自测值：深蓝鞋 0.375 / 0.527，所以不会被误杀；
+    即使真遇上"全黑鞋 + 无边距"的极端情况，最坏结果也只是找不到候选 →
+    流程退回"居中默认框 + 视觉模型判定"，不会拒绝用户。
+    """
+    x, y, w, h = subject.box
+    patch = rgb[max(0, y) : y + h, max(0, x) : x + w]
+    if patch.size == 0:
+        return False
+    gray = patch.astype(np.float32).mean(axis=2)
+    dark = float((gray < 90).mean())
+    light = float((gray > LIGHT_VALUE_MIN).mean())
+    return dark >= CHROME_DARK_RATIO and light <= CHROME_LIGHT_RATIO
+
+
 def detect_subjects(rgb: np.ndarray, *, min_area_ratio: float = CANDIDATE_MIN_AREA_RATIO) -> list[Subject]:
-    """返回"像鞋"的候选主体（按面积从大到小）。"""
+    """返回"像鞋"的候选主体（按面积从大到小），已剔除 App 深色界面栏。"""
     height, width = rgb.shape[:2]
     floor = min_area_ratio * height * width
     low, high = SHOE_ASPECT_RATIO
-    return [s for s in _components(_core_mask(rgb)) if s.area >= floor and low <= s.aspect_ratio <= high]
+    return [
+        s
+        for s in _components(_core_mask(rgb))
+        if s.area >= floor and low <= s.aspect_ratio <= high and not is_ui_chrome(rgb, s)
+    ]
 
 
 def _background_color(rgb: np.ndarray) -> np.ndarray:
-    """用图像四角与边缘取样估计"页面背景色"（商品图多是白底）。"""
+    """估计"商品图的底"（多角与边缘取样）。
+
+    ## 坑（2026-09-23 实测）：App 截图的四边常是深色界面栏
+    直接取四边中位色会得到"黑"，于是白色商品图区域被当成"主体"，
+    扩展那一步会把框涨到整块白底。因此优先用**浅色区域的中位色**，
+    只有在浅色区域不可信（占比 < 10%，例如深底商品图）时才退回边缘取样。
+    """
     height, width = rgb.shape[:2]
+    light = _light_mask(rgb)
+    if float(light.mean()) >= 0.10:
+        return np.median(rgb[light].reshape(-1, 3).astype(np.float32), axis=0)
+
     band = max(4, min(height, width) // 40)
     edges = np.concatenate(
         [
@@ -127,6 +178,24 @@ def expand_to_full_subject(rgb: np.ndarray, subject: Subject, *, tolerance: floa
     return subject
 
 
+def _refine_subject(rgb: np.ndarray, core: Subject) -> Subject:
+    """把核心候选修成"整只鞋"—— 但只在确实需要时才扩张。
+
+    ## 为什么要加这个判断（2026-09-23 线上真图实测）
+    得物截图里，鞋的正下方紧跟着规格卡片文字。核心候选（鞋）宽高比 2.1 **已经像整只鞋**，
+    但旧逻辑一律做"背景色距离拡张"，结果把"鞋 + 卡牌文字"连成一个组件：
+    建议框变成 (0, 998, 1260, 789)（鞋 + 下方界面），比只框鞋更大更脏。
+
+    判据：核心候选的宽高比已经在"像鞋"区间内 → 它很可能已经是整只鞋，不再扩张；
+    只有当核心候选**不像鞋**（如只框到彩色后跟/大底的窄条，宽高比 0.3–1.2）时才扩张 ——
+    那正是当初加扩张要修的真实 bug（白鞋只框到半只）。
+    """
+    low, high = SHOE_ASPECT_RATIO
+    if low <= core.aspect_ratio <= high:
+        return core
+    return expand_to_full_subject(rgb, core)
+
+
 def suggest_crop(image_size: tuple[int, int], subject: Subject, *, margin: tuple[float, float] = CROP_MARGIN) -> tuple[int, int, int, int]:
     """给出建议裁切框（含余量，且不超出图片边界）。"""
     width, height = image_size
@@ -162,7 +231,7 @@ def judge_subjects(rgb: np.ndarray) -> SubjectVerdict:
         return SubjectVerdict(status="none", subjects=[], suggested_crop=None, dominant_ratio=None)
 
     if len(subjects) == 1:
-        picked = expand_to_full_subject(rgb, subjects[0])
+        picked = _refine_subject(rgb, subjects[0])
         return SubjectVerdict(
             status="ok",
             subjects=[picked],
@@ -172,7 +241,7 @@ def judge_subjects(rgb: np.ndarray) -> SubjectVerdict:
 
     dominant = subjects[0].area / max(subjects[1].area, 1)
     if dominant >= DOMINANT_RATIO:
-        picked = expand_to_full_subject(rgb, subjects[0])
+        picked = _refine_subject(rgb, subjects[0])
         return SubjectVerdict(
             status="ok",
             subjects=[picked],

@@ -14,8 +14,11 @@ from PIL import Image, ImageDraw
 
 from app.services.cv.subject import (
     Subject,
+    _background_color,
+    _refine_subject,
     detect_subjects,
     expand_to_full_subject,
+    is_ui_chrome,
     judge_subjects,
     suggest_crop,
 )
@@ -127,3 +130,73 @@ def test_suggest_crop_stays_inside_image() -> None:
     x, y, w, h = suggest_crop((500, 300), subject)
     assert x >= 0 and y >= 0
     assert x + w <= 500 and y + h <= 300
+
+
+# ---------------- App 截图：深色界面栏不得被当成"鞋" ----------------
+
+
+def _app_screenshot(
+    *,
+    top_bar: int = 200,
+    photo: int = 700,
+    bottom_bar: int = 400,
+    width: int = 1000,
+) -> tuple[Image.Image, tuple[int, int, int, int]]:
+    """造一张"得物风"截图：黑顶栏 + 白底商品图（含鞋）+ 黑底规格栏。
+
+    返回 (图, 鞋所在区域)。界面栏故意做成"又大又暗"，跟线上实测的 0.988 / 0.904 暗占比一致。
+    """
+    height = top_bar + photo + bottom_bar
+    image = Image.new("RGB", (width, height), "white")
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((0, 0, width, top_bar), fill="#050505")  # 状态栏
+    shoe = (100, top_bar + 150, 900, top_bar + 550)  # 800×400 ≈ 2:1
+    draw.ellipse(shoe, fill="#2b3a8f")
+    draw.rectangle((0, top_bar + photo, width, height), fill="#0a0a0a")  # 规格/价格栏
+    for i in range(3):  # 栏里的白字（模拟规格卡片文字）
+        x0 = 60 + i * 320
+        draw.rectangle((x0, top_bar + photo + 120, x0 + 220, top_bar + photo + 160), fill="#f2f2f2")
+    return image, shoe
+
+
+def test_dark_app_chrome_is_not_treated_as_shoe() -> None:
+    """实测回归：得物截图里面积最大的两个"候选"其实是顶部状态栏与底部价格栏。
+
+    线上表现：CV 把建议框给了价格栏 → 视觉模型正确地回"更像电商商品规格选择页"→ 体检这步就断了。
+    """
+    image, shoe = _app_screenshot()
+    arr = np.array(image)
+
+    top_bar = Subject(box=(0, 0, 1000, 200), area=200_000, aspect_ratio=5.0)
+    bottom_bar = Subject(box=(0, 900, 1000, 400), area=400_000, aspect_ratio=2.5)
+    assert is_ui_chrome(arr, top_bar) is True
+    assert is_ui_chrome(arr, bottom_bar) is True
+
+    subjects = detect_subjects(arr)
+    assert len(subjects) == 1, f"界面栏应被剔除，只剩鞋：{[s.box for s in subjects]}"
+    sx, sy, sw, sh = subjects[0].box
+    assert sx >= shoe[0] - 5 and sy >= shoe[1] - 5, "检出的应是鞋所在区域"
+
+    verdict = judge_subjects(arr)
+    assert verdict.status == "ok"
+    x, y, w, h = verdict.suggested_crop
+    assert y >= 200 - 10, "建议框不得伸进顶部状态栏"
+    assert y + h <= 900 + 10, "建议框不得把底部规格/价格栏框进来"
+
+
+def test_core_already_shoe_like_is_not_expanded() -> None:
+    """鞋已经"长得像整只鞋"时不再扩张 —— 否则会把紧贴鞋下方的界面文字卷进来。"""
+    image, _shoe = _app_screenshot()
+    arr = np.array(image)
+    core = Subject(box=(100, 350, 800, 400), area=320_000, aspect_ratio=2.0)
+    assert _refine_subject(arr, core) is core
+
+    narrow = Subject(box=(600, 380, 200, 400), area=80_000, aspect_ratio=0.5)
+    assert _refine_subject(arr, narrow) is not narrow, "不像鞋的核心候选才需要扩张"
+
+
+def test_background_color_prefers_light_photo_area() -> None:
+    """截图四边都是黑栏时，背景色不能估成黑（否则白底商品图区会被当成"主体"）。"""
+    image, _shoe = _app_screenshot()
+    background = _background_color(np.array(image))
+    assert background.min() > 200, f"应估成白底，实际 {background}"
