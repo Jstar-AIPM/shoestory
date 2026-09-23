@@ -15,6 +15,7 @@ from PIL import Image, ImageDraw
 
 from app.core.config import Settings
 from app.schemas.enums import SOURCE_CREDIT
+from app.schemas.inspect import PhotoInspectOut  # noqa: F401
 from app.schemas.llm import (
     ModelCandidate,
     ModelResolveOut,
@@ -123,6 +124,26 @@ class MockQualityJudge:
 
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
+
+    def inspect_photo(self, *, image: bytes, recorder) -> "PhotoInspectOut":
+        """mock 体检：默认判为"是鞋 + ASICS 交叉条纹 + 有条文字"，确定性便于测试。"""
+        from app.schemas.inspect import LogoInfo, PhotoInspectOut, ShoeText
+
+        recorder.check("vision")
+        with timer():
+            pass
+        return PhotoInspectOut(
+            is_shoe=True,
+            confidence=0.95,
+            shoe_count=1,
+            subject_description="",
+            brand="ASICS",
+            model_name="GEL-Nimbus 27",
+            colorway="白蓝",
+            logo=LogoInfo(type="两侧交叉条纹", position="鞋身两侧", fill_required=True, confidence=0.9),
+            texts=[ShoeText(text="GEL", position="鞋侧中足", box=(0.60, 0.66, 0.24, 0.10))],
+            notes="mock",
+        )
 
     def screen_sources(self, *, images: list[bytes], model_name: str, recorder) -> SourceScreenOut:
         """mock 预筛：第 1 张判为可用，其余判为不可用（确定性，便于测试）。"""
@@ -275,6 +296,8 @@ class MockLineartGenerator:
         recorder: CallRecorder,
         structure_reference: bytes | None = None,  # mock 忽略结构骨架/型号，但接口保持一致
         model_name: str | None = None,
+        logo_fill: str | None = None,  # mock 忽略 Logo/文字提示，但接口保持一致
+        shoe_texts: list[str] | None = None,
     ) -> bytes:
         recorder.check("image")
         with timer() as box:

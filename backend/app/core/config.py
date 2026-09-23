@@ -102,6 +102,8 @@ class Settings(BaseSettings):
     #: 用户感知不到、也不额外消耗额度；极端情况（且第 1 张已达标）不会多花钱。
     gen_max_attempts: int = 2
     quality_min_score: float = 0.80
+    #: 文字可辨度（text_legible）低于此值时触发「文字兜底贴合」：从原图裁文字区域贴到线稿
+    text_fallback_threshold: float = 0.5
     artwork_width: int = 1536
     artwork_height: int = 1024
     task_max_upstream_calls: int = 10
@@ -124,6 +126,12 @@ class Settings(BaseSettings):
     warmup_interval_seconds: int = 180
     #: 单次预热的超时（秒）：失败就认输，不拖累业务
     warmup_timeout_seconds: float = 15.0
+
+    # ---------- 上传图体检（V2）----------
+    #: 每人每天最多体检几次（防手滑刷成本；0 = 不限）。线上每次约 
+    max_inspect_per_day: int = 50
+    #: 上传图解码后的最大边长（超出会自动等比缩小，保护内存与上游）
+    max_upload_edge: int = 2400
 
     # ---------- 降级与调试 ----------
     enable_manual_source: bool = True

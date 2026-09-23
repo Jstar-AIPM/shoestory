@@ -16,3 +16,34 @@ def consume_generation(settings: Settings, store: InviteStore, owner_id: str) ->
     if not settings.auth_required:
         return
     store.consume_generation(owner_id)
+
+
+# ---------------------------------------------------------------------------
+# 体检护栏（V2 新增）
+# ---------------------------------------------------------------------------
+# 上传图体检会调用一次视觉模型（本机计算）。它不是"生成"，不消耗邀请码额度，
+# 但要防"手滑反复上传"把成本刷起来。做法：进程内按天计数。
+# 与部署形态一致：线上最大实例数 = 1，因此进程内计数就是全局计数。
+_INSPECT_USAGE: dict[str, tuple[str, int]] = {}   # owner_id -> (日期, 次数)
+
+
+def consume_inspect(settings: Settings, owner_id: str, *, today: str) -> None:
+    """记一次体检；超过 ``MAX_INSPECT_PER_DAY`` 抛 QUOTA_EXCEEDED。"""
+    if not settings.auth_required:
+        return
+    limit = settings.max_inspect_per_day
+    day, used = _INSPECT_USAGE.get(owner_id, (today, 0))
+    if day != today:
+        day, used = today, 0
+    if limit > 0 and used >= limit:
+        from app.core.errors import AppError, ErrorCode
+
+        raise AppError(
+            ErrorCode.QUOTA_EXCEEDED,
+            detail={"scope": "inspect", "limit": limit, "used": used},
+        )
+    _INSPECT_USAGE[owner_id] = (day, used + 1)
+
+
+def inspect_usage(owner_id: str) -> int:
+    return _INSPECT_USAGE.get(owner_id, ("", 0))[1]

@@ -40,6 +40,9 @@ def normalize_to_canvas(
         "height": height,
         "padding": f"{int(padding_ratio * 100)}%",
         "subject_bbox": list(bbox),
+        # 裁切图坐标 → 画布坐标的仿射变换：canvas = (src - bbox.xy) * scale + offset
+        "scale": round(float(scale), 6),
+        "offset": list(offset),
         "direction_verified": False,
     }
     return encode_png(canvas), meta

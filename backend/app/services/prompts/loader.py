@@ -27,6 +27,7 @@ REQUIRED_PROMPTS: tuple[str, ...] = (
     "verify_lineart.md",
     "rank_source_images.md",
     "screen_source_images.md",
+    "inspect_photo.md",
 )
 
 #: 已被读取且当时缺失的 Prompt（用于健康检查如实上报）

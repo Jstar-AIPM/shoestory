@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.v1 import admin as admin_router
 from app.api.v1 import archive as archive_router
+from app.api.v1 import inspect as inspect_router
 from app.api.v1 import auth as auth_router
 from app.api.v1 import system as system_router
 from app.api.v1 import tasks as tasks_router
@@ -115,6 +116,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # ---------------- 路由 ----------------
     app.include_router(system_router.router, prefix="/api/v1")
+    app.include_router(inspect_router.router, prefix="/api/v1")
     app.include_router(tasks_router.router, prefix="/api/v1")
     app.include_router(archive_router.router, prefix="/api/v1")
     app.include_router(auth_router.router, prefix="/api/v1")

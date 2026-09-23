@@ -9,6 +9,7 @@ from __future__ import annotations
 from app.core.config import Settings
 from app.services.cv.imageio import prepare_for_vision
 from app.core.errors import AppError, ErrorCode
+from app.schemas.inspect import PhotoInspectOut
 from app.schemas.llm import QualityReportOut, SourceScreenOut
 from app.services.parsers import validate_llm_output
 from app.services.prompts.loader import load_prompt_text
@@ -18,6 +19,7 @@ from app.services.style.loader import StyleTemplate
 
 SYSTEM_FALLBACK = "你是严格的球鞋线稿质检员。只输出一个 JSON 对象，四项分数都要给。"
 SCREEN_FALLBACK = "你是球鞋图片可用性审核员，只输出一个 JSON 对象。"
+INSPECT_FALLBACK = "你是球鞋图片审核员：判断图里是不是运动鞋，并识别品牌、型号、Logo 与鞋身文字；只输出一个 JSON 对象。"
 
 
 class ArkQualityJudge:
@@ -96,6 +98,43 @@ class ArkQualityJudge:
     def _load_screen_prompt(self) -> str:
         # 同 _load_prompt：缺失会记 ERROR 并进入健康检查的 missing_prompts
         return load_prompt_text("screen_source_images.md", SCREEN_FALLBACK)
+
+    def _load_inspect_prompt(self) -> str:
+        # 缺失会记 ERROR 并进入健康检查的 missing_prompts
+        return load_prompt_text("inspect_photo.md", INSPECT_FALLBACK)
+
+    def inspect_photo(self, *, image: bytes, recorder: CallRecorder) -> PhotoInspectOut:
+        """上传图体检：一次调用判断「是否鞋 / 鞋的数量 / 品牌型号 / Logo / 文字」。
+
+        与 screen_sources 的区别：这里判的是"用户上传的图能不能用来画"，
+        并顺带产出绘制所需的信息（Logo 填色要求、文字清单、归档标题）。
+        """
+        prepared = prepare_for_vision(image, max_edge=self.settings.ark_max_image_edge)
+        user = (
+            "这是用户上传的图片（可能截取自球鞋 App 的商品页）。"
+            "请按要求判断并只输出一个 JSON 对象。"
+        )
+        recorder.check("vision")
+        with timer() as box:
+            try:
+                text = self.client.chat_text(
+                    model=self.model,
+                    system=self._load_inspect_prompt(),
+                    user=user,
+                    images=[("用户上传图", prepared)],
+                    temperature=0.0,
+                )
+            except AppError as exc:
+                recorder.record(
+                    "vision", provider=self.name, model=self.model, duration_ms=box["ms"],
+                    ok=False, error_code=exc.code.value, detail={"task": "inspect_photo"},
+                )
+                raise
+        recorder.record(
+            "vision", provider=self.name, model=self.model, duration_ms=box["ms"],
+            detail={"task": "inspect_photo", "chars": len(text)},
+        )
+        return validate_llm_output(PhotoInspectOut, text)
 
     def screen_sources(
         self,

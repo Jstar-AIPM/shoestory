@@ -17,6 +17,7 @@ from typing import Any, Iterator, Literal, Protocol, runtime_checkable
 
 from app.core.config import Settings
 from app.core.errors import AppError, ErrorCode
+from app.schemas.inspect import PhotoInspectOut
 from app.schemas.llm import ModelResolveOut, QualityReportOut, SourceScreenOut
 from app.schemas.task import SourceCandidate
 from app.services.style.loader import StyleTemplate
@@ -165,6 +166,13 @@ class QualityJudge(Protocol):
         recorder: CallRecorder,
     ) -> SourceScreenOut: ...
 
+    def inspect_photo(
+        self,
+        *,
+        image: bytes,
+        recorder: CallRecorder,
+    ) -> PhotoInspectOut: ...
+
 
 @runtime_checkable
 class LineartGenerator(Protocol):
@@ -181,6 +189,8 @@ class LineartGenerator(Protocol):
         recorder: CallRecorder,
         structure_reference: bytes | None = None,
         model_name: str | None = None,
+        logo_fill: str | None = None,
+        shoe_texts: list[str] | None = None,
     ) -> bytes: ...
 
 
