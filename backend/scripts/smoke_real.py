@@ -212,7 +212,7 @@ def write_report(report: dict, provider_info: dict, filename: str = "早期冒�
         "",
         f"- 状态轨迹：{' → '.join(report.get('states_seen', [])) or '—'}",
         f"- 最终状态：{report.get('final_state', '—')}",
-        f"- 上游调用次数：{report.get('upstream_calls', '—')}｜上游调用：{report.get('est_cost_cny', '—')}",
+        f"- 上游调用次数：{report.get('upstream_calls', '—')}",
         f"- 生成次数（含自动重试）：{report.get('attempts', '—')}｜是否**首次即达标**：{report.get('passed_first_attempt', '—')}",
         "",
         "## 质检结果",
