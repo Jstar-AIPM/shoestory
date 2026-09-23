@@ -106,6 +106,57 @@ def test_just_below_threshold_fails() -> None:
     assert any("低于阈值" in issue for issue in issues)
 
 
+def test_logo_filled_hard_gate_blocks_hollow_logo() -> None:
+    """标志性图形只画空心轮廓（logo_filled 低）→ 即使总分达标也判不合格。"""
+    style = default_style()
+    hollow = QualityReportOut(
+        shoe_silhouette_match=1.0,
+        logo_legibility=0.9,
+        style_consistency=1.0,
+        noise_level=1.0,
+        logo_filled=0.2,
+        laces_solid_ratio=0.0,
+        text_legible=1.0,
+    )
+    score, passed, issues = score_and_gate(hollow, 1.0, style, 0.80)
+    assert score >= 0.80
+    assert passed is False
+    assert any("logo_filled" in issue for issue in issues)
+
+
+def test_laces_solid_ratio_upper_bound_blocks() -> None:
+    """鞋带被涂成实心块（laces_solid_ratio 超上限）→ 不合格。"""
+    style = default_style()
+    solid_laces = QualityReportOut(
+        shoe_silhouette_match=1.0,
+        logo_legibility=0.9,
+        style_consistency=1.0,
+        noise_level=1.0,
+        logo_filled=1.0,
+        laces_solid_ratio=0.40,
+        text_legible=1.0,
+    )
+    _score, passed, issues = score_and_gate(solid_laces, 1.0, style, 0.80)
+    assert passed is False
+    assert any("laces_solid_ratio" in issue for issue in issues)
+
+
+def test_text_legible_is_soft_and_does_not_fail() -> None:
+    """文字可辨度（text_legible）是软性：低分只触发兜底贴合，不决定成败。"""
+    style = default_style()
+    garbled_text = QualityReportOut(
+        shoe_silhouette_match=1.0,
+        logo_legibility=0.9,
+        style_consistency=1.0,
+        noise_level=1.0,
+        logo_filled=1.0,
+        laces_solid_ratio=0.0,
+        text_legible=0.1,
+    )
+    _score, passed, _issues = score_and_gate(garbled_text, 1.0, style, 0.80)
+    assert passed is True, "text_legible 不应成为成败门槛"
+
+
 def test_settings_defaults_match_confirmed_decisions() -> None:
     settings = Settings(_env_file=None)
     assert settings.quality_min_score == 0.80  # PRD 已确认的质检阈值

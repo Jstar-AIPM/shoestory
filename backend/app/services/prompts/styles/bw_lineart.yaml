@@ -79,7 +79,10 @@ quality_gate: # 交给 s17 独立质检 + 确定性风格闸门
     canvas_ratio: 0.10
   hard_gate:
     logo_legibility: 0.6
+    logo_filled: 0.6      # 标志性图形必须实心填充（空心轮廓 = 错）
     canvas_ratio: 1.0
+  hard_max:
+    laces_solid_ratio: 0.15  # 鞋带被涂成实心块的上限（超出即不合格）
   min_score: 0.80
   # 风格一致性闸门：由参考图量化得出（docs/风格量化指标.md），由代码判定，不信模型。
   # - hatch_suspect：**硬判据**。4 张参考图实测全为 0；"排线版"问题图 = 34；干净版 = 4。

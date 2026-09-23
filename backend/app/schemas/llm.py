@@ -61,6 +61,12 @@ class QualityReportOut(BaseModel):
     logo_legibility: float = Field(ge=0.0, le=1.0)
     style_consistency: float = Field(ge=0.0, le=1.0)
     noise_level: float = Field(ge=0.0, le=1.0)
+    #: Logo 是否被**实心填充**（0=空心轮廓 / 1=正确填实）。硬闸门：标志性图形必须填实。
+    logo_filled: float = Field(default=1.0, ge=0.0, le=1.0)
+    #: 鞋带被涂成实心块的程度（0=无 / 1=全实心）。硬上限：鞋带不得实心。
+    laces_solid_ratio: float = Field(default=0.0, ge=0.0, le=1.0)
+    #: 鞋身文字可辨度（软性）：不达标只触发兜底贴合，不决定成败。
+    text_legible: float = Field(default=1.0, ge=0.0, le=1.0)
     issues: list[str] = Field(default_factory=list, max_length=10)
     verdict: str = Field(default="", max_length=20)
     reason: str = Field(default="", max_length=300)
@@ -81,7 +87,15 @@ class QualityReportOut(BaseModel):
             out.append(item.strip()[:200])
         return out
 
-    @field_validator("shoe_silhouette_match", "logo_legibility", "style_consistency", "noise_level")
+    @field_validator(
+        "shoe_silhouette_match",
+        "logo_legibility",
+        "style_consistency",
+        "noise_level",
+        "logo_filled",
+        "laces_solid_ratio",
+        "text_legible",
+    )
     @classmethod
     def _finite_scores(cls, value: float) -> float:
         if value != value or value in (float("inf"), float("-inf")):  # NaN / Inf

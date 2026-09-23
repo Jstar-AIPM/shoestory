@@ -45,6 +45,10 @@ def score_and_gate(
         "style_consistency": report.style_consistency,
         "noise_level": report.noise_level,
         "canvas_ratio": canvas_score,
+        # 以下三项不参与加权（weights 里没有），只供硬闸门用
+        "logo_filled": report.logo_filled,
+        "laces_solid_ratio": report.laces_solid_ratio,
+        "text_legible": report.text_legible,
     }
     total_weight = sum(weights.get(key, 0.0) for key in scores) or 1.0
     score = sum(scores[key] * weights.get(key, 0.0) for key in scores) / total_weight
@@ -52,11 +56,18 @@ def score_and_gate(
 
     issues = list(report.issues)
     passed = score >= min_score
+    # 硬下限：标志性 Logo 必须填实、Logo 可辨识、画布满分……
     for key, threshold in (style.quality_gate.hard_gate or {}).items():
         value = scores.get(key, 0.0)
         if value < threshold:
             passed = False
             issues.append(f"{key} 未达硬门槛（{value:.2f} < {threshold:.2f}）")
+    # 硬上限：鞋带不得被涂成实心块等
+    for key, ceiling in (style.quality_gate.hard_max or {}).items():
+        value = scores.get(key, 0.0)
+        if value > ceiling:
+            passed = False
+            issues.append(f"{key} 超出硬上限（{value:.2f} > {ceiling:.2f}）")
     if not passed and score < min_score:
         issues.append(f"加权总分 {score:.2f} 低于阈值 {min_score:.2f}")
     if not style_ok:

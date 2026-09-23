@@ -47,6 +47,8 @@ class QualityGate(BaseModel):
     checks: list[str]
     weights: dict[str, float]
     hard_gate: dict[str, float] = Field(default_factory=dict)
+    #: 硬上限闸门：value > 上限 -> 不合格（如 laces_solid_ratio 鞋带不得实心）
+    hard_max: dict[str, float] = Field(default_factory=dict)
     min_score: float = 0.80
     #: 风格一致性闸门：metric -> [low, high]，由参考图量化得出，由代码判定
     style_metrics: dict[str, list[float]] = Field(default_factory=dict)
