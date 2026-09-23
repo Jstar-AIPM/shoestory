@@ -175,7 +175,7 @@ export function ShoeDetailDialog({
             <>
               {/* 画稿：手机可左右滑切换鞋款（与按钮、键盘三种方式并存） */}
               <div
-                className="mx-auto mt-3 w-full max-w-[560px] overflow-hidden rounded-[var(--radius-card)] border border-line bg-white"
+                className="artwork-paper mx-auto mt-3 w-full max-w-[560px] overflow-hidden rounded-[var(--radius-card)] border border-line"
                 onTouchStart={(event) => {
                   touchStartX.current = event.touches[0]?.clientX ?? null;
                 }}

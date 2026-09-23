@@ -17,6 +17,9 @@ const CHECK_LABELS: Record<string, string> = {
   style_consistency: "风格一致",
   noise_level: "画面干净",
   canvas_ratio: "画布规格",
+  logo_filled: "Logo 填实",
+  laces_solid_ratio: "鞋带实心度",
+  text_legible: "文字可辨",
 };
 
 export function EffectConfirm({
@@ -43,13 +46,13 @@ export function EffectConfirm({
       <div className="mx-auto w-full max-w-[720px]">
         <div
           data-theme="card-paper"
-          className="artwork-frame overflow-hidden rounded-[var(--radius-card)] border border-line bg-white"
+          className="artwork-paper artwork-frame overflow-hidden rounded-[var(--radius-card)] border border-line"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={artworkSrc}
             alt={`${task.normalize?.normalized ?? task.query} 的黑白线稿`}
-            className="frame-3x2"
+            className="artwork-fade-in frame-3x2"
             style={{ objectFit: "contain" }}
           />
         </div>

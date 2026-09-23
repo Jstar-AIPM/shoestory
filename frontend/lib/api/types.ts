@@ -3,6 +3,60 @@
  * 参考：docs/阶段开发文档.md 第 5 节
  */
 
+export type CropBox = { x: number; y: number; w: number; h: number };
+
+/** 鞋身文字的定位信息（文字兜底贴合用；box 为相对体检裁切图的归一化 [x,y,w,h]） */
+export type TextStamp = {
+  text: string;
+  position: string;
+  box: [number, number, number, number] | null;
+};
+
+export type InspectTier = "ok" | "not_shoe" | "multi" | "uncertain";
+
+/** POST /inspect 的响应（前端只负责渲染，不猜后端规则） */
+export type InspectResponse = {
+  ok: boolean;
+  tier: InspectTier;
+  message: string;
+  hint: string;
+  crop: CropBox | null;
+  image: { width: number; height: number };
+  subject: { status: string; count: number };
+  detail: {
+    brand: string;
+    model_name: string;
+    colorway: string;
+    display_name: string;
+    logo_type: string;
+    logo_position: string;
+    logo_fill_required: boolean;
+    texts: string[];
+    text_stamps: TextStamp[];
+    shoe_count: number;
+    confidence: number;
+  };
+};
+
+/** POST /tasks/upload 的请求体（体检结论由 /inspect 原样带回） */
+export type UploadTaskPayload = {
+  image_base64: string;
+  crop: CropBox;
+  inspect: {
+    display_name: string;
+    brand: string;
+    model_name: string;
+    colorway: string;
+    logo_type: string;
+    logo_position: string;
+    logo_fill_required: boolean;
+    texts: string[];
+    text_stamps: TextStamp[];
+    shoe_count: number;
+  };
+  style_id?: string;
+};
+
 export type TaskState =
   | "created"
   | "resolving"
@@ -83,6 +137,8 @@ export type TaskOut = {
   selected_index: number | null;
   artworks: Artwork[];
   current_artwork_url: string | null;
+  /** CV 草稿（边缘骨架图）地址；AI 生成中做动效用，型号直出为 null */
+  draft_url: string | null;
   quality: Quality;
   error: { code: string; message: string; detail?: Record<string, unknown> } | null;
   upstream_calls: number;

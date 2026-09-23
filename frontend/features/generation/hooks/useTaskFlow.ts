@@ -15,8 +15,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { LS_ACTIVE_TASK, POLL_BACKOFF_MS, POLL_INTERVAL_MS, POLL_MAX_BACKOFF_MS } from "@/config";
 import { ApiError } from "@/lib/api/client";
 import type { AppError } from "@/lib/api/errors";
+import { createUploadTask } from "@/lib/api/inspect";
 import { archiveTask, cancelTask, createTask, getTask, regenerateTask, selectSource } from "@/lib/api/tasks";
-import type { TaskOut } from "@/lib/api/types";
+import type { TaskOut, UploadTaskPayload } from "@/lib/api/types";
 import { isPolling } from "@/lib/state/taskState";
 
 function readTaskIdFromUrl(): string | null {
@@ -82,6 +83,27 @@ export function useTaskFlow(onArchived?: (shoeId: string) => void, options: { en
       stopPolling();
       try {
         const created = await createTask(query);
+        setTask(created);
+        remember(created.task_id);
+        return created;
+      } catch (cause) {
+        applyError(cause);
+        return null;
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [applyError, remember, stopPolling],
+  );
+
+  /** 上传图建任务（V2）：图 + 裁切框 + 已体检结论 → 直接进入生成 */
+  const submitUpload = useCallback(
+    async (payload: UploadTaskPayload) => {
+      setSubmitting(true);
+      setError(null);
+      stopPolling();
+      try {
+        const created = await createUploadTask(payload);
         setTask(created);
         remember(created.task_id);
         return created;
@@ -269,6 +291,7 @@ export function useTaskFlow(onArchived?: (shoeId: string) => void, options: { en
     error,
     restoring,
     submit,
+    submitUpload,
     choose,
     regenerate,
     archive,

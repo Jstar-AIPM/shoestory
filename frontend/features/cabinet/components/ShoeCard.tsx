@@ -32,7 +32,7 @@ export function ShoeCard({
         className,
       )}
     >
-      <span className="frame-3x2 border-b border-line">
+      <span className="artwork-paper frame-3x2 border-b border-line">
         {/* 画稿是绝对主角：3:2 容器 + contain，绝不裁切 */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={item.artworkUrl} alt={`${item.modelName} 的黑白线稿`} loading="lazy" />

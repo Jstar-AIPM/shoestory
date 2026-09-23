@@ -23,12 +23,16 @@ import { useCabinet } from "@/features/cabinet/hooks/useCabinet";
 import { ShoeDetailDialog } from "@/features/cabinet/components/ShoeDetailDialog";
 import { CabinetGrid } from "@/features/cabinet/components/CabinetGrid";
 import { ArchiveForm } from "@/features/generation/components/ArchiveForm";
+import { CropConfirm } from "@/features/generation/components/CropConfirm";
 import { EffectConfirm } from "@/features/generation/components/EffectConfirm";
 import { GenerationProgress } from "@/features/generation/components/GenerationProgress";
+import { InspectOutcome } from "@/features/generation/components/InspectOutcome";
 import { ModelInput } from "@/features/generation/components/ModelInput";
 import { ResolveFeedback } from "@/features/generation/components/ResolveFeedback";
 import { SourceConfirm } from "@/features/generation/components/SourceConfirm";
+import { UploadEntry } from "@/features/generation/components/UploadEntry";
 import { useTaskFlow } from "@/features/generation/hooks/useTaskFlow";
+import { useUploadFlow } from "@/features/generation/hooks/useUploadFlow";
 import { logout as logoutApi, me as fetchMe } from "@/lib/api/auth";
 import { getHealth } from "@/lib/api/system";
 import { track } from "@/lib/analytics";
@@ -46,6 +50,11 @@ export default function CabinetPage() {
 
   const cabinet = useCabinet({ enabled: dataEnabled });
   const flow = useTaskFlow(() => void cabinet.reload(), { enabled: dataEnabled });
+  const upload = useUploadFlow(async (payload) => {
+    const task = await flow.submitUpload(payload);
+    if (task) track("generation_submitted", { mode: "upload" });
+    return task;
+  });
   const [archiving, setArchiving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   /** 详情弹窗：只保存"当前打开的 shoe_id"，详情数据由弹窗自己按需拉取 */
@@ -167,7 +176,7 @@ export default function CabinetPage() {
             就是履历上的一行
           </h1>
           <p className="mt-5 max-w-[520px] text-[15px] leading-relaxed text-muted">
-            输入鞋款型号，它会变成一张黑白线稿，收进你的鞋柜。线下穿旧的鞋，在这里留下痕迹。
+            输入鞋款型号，它会变成一张黑白线稿，收进您的鞋柜。线下穿旧的鞋，在这里留下痕迹。
           </p>
           {!canGenerate ? (
             <div className="mt-6 max-w-[640px] rounded-[var(--radius-btn)] border border-warn/30 bg-warn/[0.08] px-4 py-3 text-[13px] leading-relaxed text-ink">
@@ -176,14 +185,29 @@ export default function CabinetPage() {
             </div>
           ) : null}
           <div className="mt-9 max-w-[640px]">
-            <ModelInput
-              submitting={flow.submitting}
-              disabled={ui === "running" || ui === "waiting_user" || !canGenerate}
-              onSubmit={(query) => {
-                track("generation_submitted", { query_len: query.length });
-                void flow.submit(query);
-              }}
-            />
+            {upload.phase === "empty" ? (
+              <>
+                <UploadEntry
+                  disabled={ui === "running" || ui === "waiting_user" || !canGenerate}
+                  onFiles={(files) => upload.acceptFiles(files)}
+                />
+                <details className="mt-3">
+                  <summary className="cursor-pointer select-none text-[12.5px] text-faint transition-colors hover:text-muted">
+                    没有清晰图？按型号生成（老方式）
+                  </summary>
+                  <div className="mt-3">
+                    <ModelInput
+                      submitting={flow.submitting}
+                      disabled={ui === "running" || ui === "waiting_user" || !canGenerate}
+                      onSubmit={(query) => {
+                        track("generation_submitted", { query_len: query.length });
+                        void flow.submit(query);
+                      }}
+                    />
+                  </div>
+                </details>
+              </>
+            ) : null}
           </div>
           {flow.restoring ? (
             <p className="mt-3 text-[12.5px] text-faint">正在恢复上次的任务…</p>
@@ -206,7 +230,40 @@ export default function CabinetPage() {
             </div>
           ) : null}
 
-          {/* ① 生成流程（按后端真实状态渲染） */}
+          {/* ① 上传体检流程（任务创建前） */}
+          {upload.phase !== "empty" ? (
+            <div className="mb-12 space-y-5">
+              {upload.error ? (
+                <Card className="px-5 py-4">
+                  <Alert tone="danger" title="出错了">{upload.error.userMessage}</Alert>
+                </Card>
+              ) : null}
+              {upload.phase === "cropping" && upload.image && upload.crop ? (
+                <CropConfirm
+                  imageUrl={upload.image.dataUrl}
+                  imageWidth={upload.image.width}
+                  imageHeight={upload.image.height}
+                  crop={upload.crop}
+                  onCropChange={upload.setCrop}
+                  onConfirm={() => void upload.confirmCrop()}
+                  onReset={upload.reset}
+                  busy={upload.busy}
+                  guide={upload.guide}
+                />
+              ) : null}
+              {(upload.phase === "rejected" || upload.phase === "confirm") && upload.inspect ? (
+                <InspectOutcome
+                  inspect={upload.inspect}
+                  busy={upload.busy}
+                  onStart={() => void upload.start()}
+                  onReCrop={upload.reCrop}
+                  onReset={upload.reset}
+                />
+              ) : null}
+            </div>
+          ) : null}
+
+          {/* ② 生成流程（按后端真实状态渲染） */}
           {task ? (
             <div className="mb-12 space-y-5">
               {ui === "waiting_user" && task.state === "awaiting_source_confirm" ? (
@@ -327,7 +384,7 @@ export default function CabinetPage() {
 
           <footer className="mt-16 border-t border-line pt-6 text-[12.5px] leading-relaxed text-faint">
             <p>个人纪念性再创作，商标归原品牌所有；图源来自公开检索。</p>
-            <p className="mt-1">你的鞋柜只保存在你自己的服务端文件里，默认不外传、不用于训练。</p>
+            <p className="mt-1">您的鞋柜只保存在您自己的服务端文件里，默认不外传、不用于训练。</p>
           </footer>
         </PageShell>
       </main>

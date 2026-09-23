@@ -199,3 +199,60 @@ body {
   background: #3442d9;
   border-color: #3442d9;
 }
+
+
+/* ============================================================
+   V2 展示层：浅牛皮纸底 + 生成感动效
+   线稿本体仍是纯黑白二值（生成链路与质检都不变），
+   纸色、纸感与动效只叠加在展示层。
+   ============================================================ */
+.artwork-paper {
+  background-color: #f3ebd9;
+  background-image:
+    radial-gradient(circle at 18% 22%, rgba(255, 255, 255, 0.38) 0%, rgba(255, 255, 255, 0) 42%),
+    radial-gradient(circle at 82% 78%, rgba(166, 138, 96, 0.10) 0%, rgba(166, 138, 96, 0) 46%),
+    radial-gradient(circle at 68% 12%, rgba(166, 138, 96, 0.06) 0%, rgba(166, 138, 96, 0) 50%);
+}
+
+/* 白底线稿叠在纸色上：multiply 让白变透明、黑线透出纸色 */
+.artwork-paper img {
+  mix-blend-mode: multiply;
+}
+
+/* 扫过式揭示：从左到右揭示草稿（移动遮罩 + 一道扫光） */
+@keyframes sweep-reveal {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+@keyframes sweep-line {
+  from { left: -8%; opacity: 0; }
+  12% { opacity: 1; }
+  to { left: 104%; opacity: 0; }
+}
+.draft-reveal {
+  animation: sweep-reveal 1.4s ease-out both;
+}
+.draft-scanline {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 18%;
+  pointer-events: none;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.85) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  mix-blend-mode: screen;
+  animation: sweep-line 1.4s ease-in-out both;
+}
+
+/* AI 正式稿淡入替换草稿 */
+@keyframes artwork-fade-in {
+  from { opacity: 0; transform: scale(0.985); }
+  to { opacity: 1; transform: scale(1); }
+}
+.artwork-fade-in {
+  animation: artwork-fade-in 0.5s ease-out both;
+}
