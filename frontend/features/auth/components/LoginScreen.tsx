@@ -40,7 +40,8 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
     <div data-theme="wall" className="wall-gradient flex min-h-screen items-center justify-center px-5">
       <div className="w-full max-w-[460px]">
         <p className="display-upper text-[13px] text-accent">MY SHOE CABINET</p>
-        <h1 className="display-upper mt-3 text-[30px] text-white sm:text-[34px]">履历 · 我的鞋柜</h1>
+        <h1 className="display-upper mt-3 text-[30px] text-white sm:text-[34px]">鞋历 · 我的鞋柜</h1>
+        <p className="mt-3 text-[14px] text-accent">鞋会穿旧，故事不会。</p>
         <p className="mt-4 text-[14px] leading-relaxed text-muted">
           这是私人的球鞋纪念档案。请输入您收到的邀请码进入**您自己的**鞋柜 ——
           一个邀请码对应一个独立鞋柜，别人看不到您的鞋，您也看不到别人的。

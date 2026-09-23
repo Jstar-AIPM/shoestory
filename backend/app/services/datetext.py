@@ -96,3 +96,22 @@ def parse_date_text(text: str | None) -> DateParseResult:
             return DateParseResult(right.key, failed=False, kind="range")
 
     return single
+
+def human_hint(result: "DateParseResult") -> str:
+    """把解析结果翻译成**给人看的话**（不露排序键）。
+
+    产品反馈（2026-09-23）：界面上不该出现 `2021-06-01` 这种机械键值，
+    只需要让用户确认"我填的时间被理解成了什么"。
+    """
+    if result.kind == "empty":
+        return "留空即可，之后也能补"
+    if result.failed or not result.key:
+        return "这个写法没看懂，会排在最后（也可以直接写 2021 或 2021年6月）"
+    year, month, day = (result.key.split("-") + ["01", "01"])[:3]
+    if result.kind == "range":
+        return f"识别为 {year} 年起"
+    if result.kind == "ymd":
+        return f"识别为 {year}年{int(month)}月{int(day)}日"
+    if result.kind == "ym":
+        return f"识别为 {year}年{int(month)}月"
+    return f"识别为 {year}年"

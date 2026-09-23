@@ -166,7 +166,7 @@ def create_task(
     recorder = CallRecorder(settings.task_max_upstream_calls, settings)
 
     transit(record, S.RESOLVING, event="resolve_start", detail={"query": payload.query})
-    record.progress = {"step": "resolving", "label": "型号校对中", "percent": 5}
+    record.progress = {"step": "resolving", "label": "正在确认型号", "percent": 5}
     container.task_store.save(record)
     try:
         resolved = resolve_model(payload.query, container.providers.resolver, recorder)
@@ -258,7 +258,7 @@ def create_upload_task(
     container.task_store.create(record)
     container.asset_store.put_task_file(owner_id, record.task_id, SOURCE_FILENAME, png)
     record.source.source_path = None
-    record.progress = {"step": "preprocessing", "label": "去背景 + 校正到 3:2 画布", "percent": 15}
+    record.progress = {"step": "preprocessing", "label": "正在把照片整理成 3:2 画布", "percent": 15}
     container.task_store.save(record)
 
     TraceWriter(container.backend, owner_id, record.task_id).write(
@@ -308,7 +308,7 @@ def select_source(
         record.source.source_path = None
         record.error = None
         transit(record, S.PREPROCESSING, event="model_only_selected", detail={"model": record.resolve.normalized})
-        record.progress = {"step": "generating", "label": "按型号生成线稿", "percent": 40}
+        record.progress = {"step": "generating", "label": "正在线条描摹（约 30–60 秒）", "percent": 40}
         container.task_store.save(record)
         hooks.run("after_source_selected", {"owner_id": owner_id, "task_id": task_id})
         TraceWriter(container.backend, owner_id, task_id).write(
@@ -357,7 +357,7 @@ def select_source(
     record.source.source_path = None
     record.error = None
     transit(record, S.PREPROCESSING, event="source_selected", detail={"provider": provider})
-    record.progress = {"step": "preprocessing", "label": "去背景 + 校正到 3:2 画布", "percent": 15}
+    record.progress = {"step": "preprocessing", "label": "正在把照片整理成 3:2 画布", "percent": 15}
     container.task_store.save(record)
 
     hooks.run("after_source_selected", {"owner_id": owner_id, "task_id": task_id})

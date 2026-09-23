@@ -53,13 +53,13 @@ S = TaskState
 
 PROGRESS: dict[TaskState, tuple[str, str, int]] = {
     S.SEARCHING_SOURCE: ("searching_source", "正在找这双鞋的参考图", 10),
-    S.PREPROCESSING: ("preprocessing", "去背景 + 校正到 3:2 画布", 15),
-    S.GENERATING: ("generating", "生成黑白线稿", 45),
-    S.REFINING: ("refining", "后处理：二值化 + 去噪", 72),
-    S.VERIFYING: ("verifying", "独立质检中", 88),
-    S.AWAITING_EFFECT_CONFIRM: ("awaiting_effect_confirm", "出图完成，请确认", 100),
-    S.INTERRUPTED: ("interrupted", "服务重启，已暂停", 0),
-    S.FAILED: ("failed", "生成失败", 100),
+    S.PREPROCESSING: ("preprocessing", "正在把照片整理成 3:2 画布", 15),
+    S.GENERATING: ("generating", "正在线条描摹（约 30–60 秒）", 45),
+    S.REFINING: ("refining", "正在把线条整理干净", 72),
+    S.VERIFYING: ("verifying", "正在自检（对照风格与 Logo）", 88),
+    S.AWAITING_EFFECT_CONFIRM: ("awaiting_effect_confirm", "画好了，等您确认", 100),
+    S.INTERRUPTED: ("interrupted", "服务重启了，任务已暂停", 0),
+    S.FAILED: ("failed", "这次没画好", 100),
 }
 
 #: 可自动重试的上游错误（认证/额度类错误不重试，避免白烧钱）

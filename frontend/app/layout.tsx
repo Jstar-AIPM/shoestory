@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "履历 · 我的鞋柜",
-  description: "上传一张球鞋照片，把它变成一张黑白线稿，收进您的鞋柜。",
+  title: "鞋历 · 我的鞋柜",
+  description: "上传一张球鞋照片，把它变成一张黑白线稿，收进您的鞋柜。收藏的不只是球鞋，是走过的日子。",
 };
 
 export const viewport: Viewport = {

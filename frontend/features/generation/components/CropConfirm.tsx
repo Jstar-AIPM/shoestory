@@ -11,10 +11,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { StatusBar } from "@/components/ui/StatusBar";
 import type { CropBox } from "@/lib/api/types";
 
 const MIN_SIZE = 32; // 原图像素的最小框边长（与后端一致）
 const HANDLE_SIZE = 28; // 热区（px），视觉上画小一点
+/** 舞台高度上限（视口占比）：竖图不能把页面撑成 1300px 高 */
+const STAGE_VH_MOBILE = 0.45;
+const STAGE_VH_DESKTOP = 0.5;
+const STAGE_VH_ZOOMED = 0.88;
 const CORNERS = ["tl", "tr", "bl", "br"] as const;
 type Corner = (typeof CORNERS)[number];
 
@@ -44,8 +49,41 @@ export function CropConfirm({
   guide?: string;
 }) {
   const imgRef = useRef<HTMLImageElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
   const [display, setDisplay] = useState({ width: 0, height: 0 });
+  const [zoomed, setZoomed] = useState(false);
+  const [stageWidth, setStageWidth] = useState<number | null>(null);
+
+  /**
+   * 舞台宽度 = min(容器宽度, 高度上限 × 图片宽高比)。
+   * 这样图片**精确填满舞台**（没有留白），裁切框的坐标换算依旧成立；
+   * 竖版截图不会被撑到一屏以外（产品反馈：显示高度控制在半屏）。
+   */
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const compute = () => {
+      const available = stage.clientWidth || stage.parentElement?.clientWidth || 0;
+      if (!available) return;
+      const ratio = Math.max(0.2, imageWidth / Math.max(1, imageHeight));
+      const maxVh = zoomed
+        ? STAGE_VH_ZOOMED
+        : window.innerWidth < 640
+          ? STAGE_VH_MOBILE
+          : STAGE_VH_DESKTOP;
+      const maxHeight = window.innerHeight * maxVh;
+      setStageWidth(Math.max(140, Math.round(Math.min(available, maxHeight * ratio))));
+    };
+    compute();
+    const ro = new ResizeObserver(compute);
+    ro.observe(stage);
+    window.addEventListener("resize", compute);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", compute);
+    };
+  }, [imageWidth, imageHeight, zoomed]);
 
   // 图片按容器宽度等比缩放，这里量出实际显示尺寸用于坐标换算
   useEffect(() => {
@@ -158,66 +196,86 @@ export function CropConfirm({
         </div>
       ) : null}
 
-      <div className="relative mt-4 select-none overflow-hidden rounded-[var(--radius-btn)] bg-black/[0.04]">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          ref={imgRef}
-          src={imageUrl}
-          alt="待裁切的鞋图"
-          className="block w-full"
-          draggable={false}
-        />
-
-        {/* 暗部遮罩（框外区域变暗） */}
+      <div className="mt-4 flex select-none justify-center">
         <div
-          className="pointer-events-none absolute inset-0"
-          style={{
-            boxShadow: `0 0 0 9999px rgba(17, 17, 17, 0.45)`,
-            clipPath: `polygon(0 0, 0 100%, ${rect.left}px 100%, ${rect.left}px ${rect.top}px, ${rect.left + rect.width}px ${rect.top}px, ${rect.left + rect.width}px ${rect.top + rect.height}px, ${rect.left}px ${rect.top + rect.height}px, ${rect.left}px 100%, 100% 100%, 100% 0)`,
-          }}
-        />
-
-        {/* 裁切框 */}
-        <div
-          className="absolute cursor-move touch-none"
-          style={{
-            left: rect.left,
-            top: rect.top,
-            width: rect.width,
-            height: rect.height,
-            outline: "2px solid #ffffff",
-            boxShadow: "0 0 0 1px rgba(17,17,17,0.35)",
-          }}
-          onPointerDown={(e) => startDrag(e, "move")}
-          role="group"
-          aria-label="裁切框（可拖动）"
+          ref={stageRef}
+          className="crop-stage w-full"
+          style={{ maxWidth: stageWidth ?? undefined }}
         >
-          {CORNERS.map((corner) => (
-            <span
-              key={corner}
-              onPointerDown={(e) => startDrag(e, "resize", corner)}
-              className="absolute z-10 touch-none"
+          <div className="relative">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              ref={imgRef}
+              src={imageUrl}
+              alt="待裁切的鞋图"
+              className="block w-full"
+              draggable={false}
+            />
+
+            {/* 暗部遮罩（框外区域变暗） */}
+            <div
+              className="pointer-events-none absolute inset-0"
               style={{
-                width: HANDLE_SIZE,
-                height: HANDLE_SIZE,
-                left: corner.includes("l") ? -HANDLE_SIZE / 2 : undefined,
-                right: corner.includes("r") ? -HANDLE_SIZE / 2 : undefined,
-                top: corner.includes("t") ? -HANDLE_SIZE / 2 : undefined,
-                bottom: corner.includes("b") ? -HANDLE_SIZE / 2 : undefined,
+                boxShadow: `0 0 0 9999px rgba(17, 17, 17, 0.45)`,
+                clipPath: `polygon(0 0, 0 100%, ${rect.left}px 100%, ${rect.left}px ${rect.top}px, ${rect.left + rect.width}px ${rect.top}px, ${rect.left + rect.width}px ${rect.top + rect.height}px, ${rect.left}px ${rect.top + rect.height}px, ${rect.left}px 100%, 100% 100%, 100% 0)`,
               }}
+            />
+
+            {/* 裁切框 */}
+            <div
+              className="absolute cursor-move touch-none"
+              style={{
+                left: rect.left,
+                top: rect.top,
+                width: rect.width,
+                height: rect.height,
+                outline: "2px solid #ffffff",
+                boxShadow: "0 0 0 1px rgba(17,17,17,0.35)",
+              }}
+              onPointerDown={(e) => startDrag(e, "move")}
+              role="group"
+              aria-label="裁切框（可拖动）"
             >
-              <span
-                className="absolute left-1/2 top-1/2 block h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-[3px] border-2 border-white bg-[#5865f2] shadow"
-                aria-hidden
-              />
-            </span>
-          ))}
+              {CORNERS.map((corner) => (
+                <span
+                  key={corner}
+                  onPointerDown={(e) => startDrag(e, "resize", corner)}
+                  className="absolute z-10 touch-none"
+                  style={{
+                    width: HANDLE_SIZE,
+                    height: HANDLE_SIZE,
+                    left: corner.includes("l") ? -HANDLE_SIZE / 2 : undefined,
+                    right: corner.includes("r") ? -HANDLE_SIZE / 2 : undefined,
+                    top: corner.includes("t") ? -HANDLE_SIZE / 2 : undefined,
+                    bottom: corner.includes("b") ? -HANDLE_SIZE / 2 : undefined,
+                  }}
+                >
+                  <span
+                    className="absolute left-1/2 top-1/2 block h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-[3px] border-2 border-white bg-[#5865f2] shadow"
+                    aria-hidden
+                  />
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
+      </div>
+
+      {/* 状态条紧贴图的下方（产品反馈：状态不要跑到顶栏去） */}
+      <div className="mt-3">
+        <StatusBar
+          tone="paper"
+          label={busy ? "正在识别这双鞋…" : "框好了就点确认，我再看看这是不是鞋"}
+          meta={`${imageWidth}×${imageHeight}`}
+        />
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <Button variant="primary" className="btn-blurple" onClick={onConfirm} disabled={busy}>
           {busy ? "正在识别…" : "确认框选"}
+        </Button>
+        <Button variant="ghost" onClick={() => setZoomed((v) => !v)}>
+          {zoomed ? "缩小看全图" : "放大看细节"}
         </Button>
         <Button variant="ghost" onClick={onReset} disabled={busy}>
           换一张

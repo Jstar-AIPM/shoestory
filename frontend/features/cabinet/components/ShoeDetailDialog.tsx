@@ -210,9 +210,7 @@ export function ShoeDetailDialog({
                       ) : null}
                     </div>
                     <p className="text-[13.5px] text-accent">
-                      {detail.date_text
-                        ? `${detail.date_text}（排序键 ${detail.date_sort_key ?? "无"}）`
-                        : "未填时间"}
+                      {detail.date_text || "未填时间"}
                     </p>
                     <p className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-ink">
                       {detail.story || "（没有写故事）"}

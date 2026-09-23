@@ -79,7 +79,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         log_event(logger, "shutdown")
 
     app = FastAPI(
-        title="履历 · 鞋柜线稿 Agent（阶段 1）",
+        title="鞋历 · 鞋柜线稿 Agent",
         version=settings.version,
         lifespan=lifespan,
         docs_url="/api/docs",

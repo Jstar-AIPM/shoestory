@@ -8,7 +8,7 @@ import sys
 from fastapi import APIRouter, Depends, Request
 
 from app.api.deps import get_container, get_settings
-from app.services.datetext import parse_date_text
+from app.services.datetext import human_hint, parse_date_text
 from app.services.prompts.loader import missing_prompts, prompt_inventory
 
 router = APIRouter(tags=["system"])
@@ -61,9 +61,11 @@ def list_styles(request: Request) -> list[dict]:
 
 @router.get("/date-parse")
 def date_parse(text: str = "") -> dict:
-    """给验收界面用：实时显示“自由文本日期”被解析成什么排序键。
+    """给界面用：把“自由文本日期”翻译成人话反馈。
 
     解析规则的唯一真相在服务端（services/datetext.py），前端不重复实现。
+    `date_sort_key` 仍然返回（排序要用），但**界面上不再展示** ——
+    产品反馈：背后的排序逻辑不需要外显，只显示年份/日期本身即可。
     """
     result = parse_date_text(text)
     return {
@@ -71,9 +73,5 @@ def date_parse(text: str = "") -> dict:
         "date_sort_key": result.key,
         "kind": result.kind,
         "failed": result.failed,
-        "hint": (
-            "无法解析，会排在最后"
-            if result.failed
-            else ("留空即可" if not result.key else f"将按 {result.key} 排序")
-        ),
+        "hint": human_hint(result),
     }

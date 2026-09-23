@@ -83,7 +83,7 @@ const run = async () => {
   else await confirmSingle.first().click();
 
   // ④ 生成中（允许离开）
-  await page.getByText(/正在处理|去背景|生成黑白线稿|独立质检中|校正到 3:2|后处理/).first().waitFor({ timeout: 60_000 });
+  await page.getByText(/正在处理|整理成 3:2|线条描摹|自检|整理干净/).first().waitFor({ timeout: 60_000 });
   check("显示真实阶段与可离开提示", (await page.getByText(/可以离开这一页/).count()) > 0);
   await page.screenshot({ path: `${OUT}/e2e-2-generating.png`, fullPage: true });
 
@@ -97,8 +97,8 @@ const run = async () => {
   await page.getByRole("button", { name: /满意，归档/ }).first().click();
   await page.getByLabel("时间 / 日期").fill("2021年6月");
   await page.getByLabel("故事").fill("E2E 验证：陪我跑完第一个半马。");
-  await page.getByText(/将按 2021-06-01 排序/).waitFor({ timeout: 10_000 });
-  check("时间自由文本能实时解析出排序键", true, "2021年6月 → 2021-06-01");
+  await page.getByText(/识别为 2021年6月/).waitFor({ timeout: 10_000 });
+  check("时间自由文本给的是人话反馈（不露排序键）", true, "2021年6月 → 识别为 2021年6月");
   await page.getByRole("button", { name: /归档进鞋柜/ }).click();
 
   await page.getByText(/已归档进鞋柜/).first().waitFor({ timeout: 30_000 });

@@ -113,7 +113,7 @@ export default function AdminPage() {
         <PageShell className="!py-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-baseline gap-3">
-              <span className="text-[20px] font-extrabold tracking-wide text-white">履历 · 管理员</span>
+              <span className="text-[20px] font-extrabold tracking-wide text-white">鞋历 · 管理员</span>
               <span className="hidden text-[12.5px] text-muted sm:inline">邀请码与访客数据管理</span>
             </div>
             <div className="flex items-center gap-2">

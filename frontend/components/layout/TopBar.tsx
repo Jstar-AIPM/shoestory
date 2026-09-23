@@ -1,7 +1,9 @@
 /**
- * 顶栏：品牌 + 运行模式徽标 + 额度/身份 + 「正在生成」横幅
+ * 顶栏：品牌 + 运行模式徽标 + 额度/身份
  *
- * 说明：`taskId`、`mode`、`quota` 都由页面按真实数据传入，这里不做任何状态推测。
+ * 说明：`mode`、`quota` 都由页面按真实数据传入，这里不做任何状态推测。
+ * 任务状态**不在顶栏显示**（2026-09-23 产品反馈）：状态条紧贴内容下方更好找，
+ * 见 `components/ui/StatusBar.tsx`。
  */
 import { PageShell } from "@/components/layout/PageShell";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -24,12 +26,10 @@ export type QuotaInfo = {
 
 export function TopBar({
   mode,
-  taskLabel,
   quota,
   onLogout,
 }: {
   mode: Mode;
-  taskLabel?: string | null;
   quota?: QuotaInfo | null;
   onLogout?: () => void;
 }) {
@@ -40,8 +40,8 @@ export function TopBar({
       <PageShell className="!py-3.5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-baseline gap-3">
-            <span className="text-[22px] font-extrabold tracking-wide text-white">履历</span>
-            <span className="hidden text-[12.5px] text-muted sm:inline">履（鞋）＋ 历（经历）</span>
+            <span className="text-[22px] font-extrabold tracking-wide text-white">鞋历</span>
+            <span className="hidden text-[12.5px] text-muted md:inline">收藏的不只是球鞋，是走过的日子</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -73,13 +73,6 @@ export function TopBar({
             ) : null}
           </div>
         </div>
-
-        {taskLabel ? (
-          <div className="mt-3 flex items-center gap-2 rounded-[var(--radius-btn)] border border-line bg-surface px-3 py-2">
-            <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-[#57f287]" />
-            <p className="truncate text-[13px] text-muted">{taskLabel}</p>
-          </div>
-        ) : null}
       </PageShell>
     </header>
   );

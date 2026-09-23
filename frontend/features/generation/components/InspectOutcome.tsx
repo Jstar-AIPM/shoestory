@@ -9,6 +9,7 @@
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { StatusBar } from "@/components/ui/StatusBar";
 import { StatusChip } from "@/components/ui/StatusChip";
 import type { InspectResponse } from "@/lib/api/types";
 
@@ -32,6 +33,9 @@ export function InspectOutcome({
           <p className="mt-1">{inspect.message}</p>
           {inspect.hint ? <p className="mt-1.5 text-muted">{inspect.hint}</p> : null}
         </Alert>
+        <div className="mt-4">
+          <StatusBar tone="paper" label="这次没画（不算生成次数，也不用花钱）" meta="换一张就能重试" />
+        </div>
         <div className="mt-4 flex flex-wrap gap-2">
           <Button variant="primary" className="btn-blurple" onClick={onReset}>
             换一张图
@@ -72,7 +76,15 @@ export function InspectOutcome({
         </dl>
       ) : null}
 
-      <div className="mt-5 flex flex-wrap items-center gap-2">
+      <div className="mt-4">
+        <StatusBar
+          tone="paper"
+          label={busy ? "正在开始…" : "认出来了，等您点「开始画」"}
+          meta="约 30–60 秒 · 1 次生成额度"
+        />
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         <Button variant="primary" className="btn-blurple" onClick={onStart} disabled={busy}>
           {busy ? "正在开始…" : "开始画"}
         </Button>

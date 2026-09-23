@@ -8,6 +8,7 @@
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { StatusBar } from "@/components/ui/StatusBar";
 import { StatusChip } from "@/components/ui/StatusChip";
 import type { TaskOut } from "@/lib/api/types";
 
@@ -54,6 +55,14 @@ export function EffectConfirm({
             alt={`${task.normalize?.normalized ?? task.query} 的黑白线稿`}
             className="artwork-fade-in frame-3x2"
             style={{ objectFit: "contain" }}
+          />
+        </div>
+        {/* 状态条紧贴画稿下方（原来在顶栏，离用户看的东西太远） */}
+        <div className="mt-3">
+          <StatusBar
+            label={passed ? "画好了，等您确认后收进鞋柜" : "画好了，但自检有疑虑，您可以再画一次"}
+            meta={`质检 ${quality.score != null ? quality.score.toFixed(3) : "—"}`}
+            pulse={false}
           />
         </div>
       </div>

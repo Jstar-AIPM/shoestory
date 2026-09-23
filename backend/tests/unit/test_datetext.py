@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.datetext import parse_date_text
+from app.services.datetext import human_hint, parse_date_text
 
 
 @pytest.mark.parametrize(
@@ -64,3 +64,31 @@ def test_range_kind_is_recorded() -> None:
     assert parse_date_text("2021年6月").kind == "ym"
     assert parse_date_text("2021").kind == "year"
     assert parse_date_text("2021-06-15").kind == "ymd"
+
+
+# ---------------- 给界面看的人话提示（不露排序键） ----------------
+# 产品反馈（2026-09-23）：界面上不该出现 2021-06-01 这种机械键值。
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("2021", "识别为 2021年"),
+        ("2021年6月", "识别为 2021年6月"),
+        ("2021-06", "识别为 2021年6月"),
+        ("2021-06-15", "识别为 2021年6月15日"),
+        ("2019–2021", "识别为 2019 年起"),
+        ("", "留空即可，之后也能补"),
+    ],
+)
+def test_human_hint_reads_like_a_sentence(text: str, expected: str) -> None:
+    assert human_hint(parse_date_text(text)) == expected
+
+
+def test_human_hint_hides_sort_key_and_explains_failure() -> None:
+    hint = human_hint(parse_date_text("2021年6月"))
+    assert "2021-06-01" not in hint, "提示里不得出现排序键"
+
+    failed = human_hint(parse_date_text("高三那年"))
+    assert "没看懂" in failed
+    assert "2021" in failed, "失败时要给出可操作的写法示例"

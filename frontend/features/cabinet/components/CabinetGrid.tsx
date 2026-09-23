@@ -29,7 +29,7 @@ export function CabinetGrid({
         </span>
       </div>
 
-      {/* ① 加载中：骨架屏（3:2 占位，避免页面跳动） */}
+      {/* ② 加载中：骨架屏（3:2 占位，避免页面跳动） */}
       {state === "loading" ? (
         <div className="mt-4 grid min-w-0 grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, index) => (
@@ -44,13 +44,12 @@ export function CabinetGrid({
         </div>
       ) : null}
 
-      {/* ② 空：请求成功但确实没有数据 —— 给出下一步动作 */}
+      {/* ① 空：请求成功但确实没有数据 —— 给出下一步动作（压缩高度，首屏要能看到「我的鞋柜」） */}
       {state === "empty" ? (
-        <Card className="mt-4 border-dashed px-6 py-12 text-center shadow-none">
-          <p className="text-[17px] font-semibold text-ink">鞋柜还是空的</p>
-          <p className="mx-auto mt-2 max-w-[420px] text-[13.5px] text-muted">
-            在上面上传一张您那双鞋的照片（白底、正侧面最好，比如商品详情页长按保存的原图）。
-            它会变成一张黑白线稿，成为您鞋柜里的第一行履历。
+        <Card className="mt-3 border-dashed px-5 py-5 text-center shadow-none">
+          <p className="text-[15px] font-semibold text-ink">鞋柜还是空的</p>
+          <p className="mx-auto mt-1.5 max-w-[460px] text-[13px] leading-relaxed text-muted">
+            在上面上传一张您那双鞋的照片（白底、正侧面最好），它会变成一张黑白线稿，成为鞋柜里的第一行。
           </p>
         </Card>
       ) : null}

@@ -1,15 +1,15 @@
 "use client";
 
 /**
- * 「我的鞋柜」首页 —— 入口即产品（阶段 3 · 3.2 第一条真实闭环）
+ * 「鞋历」首页 —— 入口即产品
  *
  * 视觉方向：方案 C「黑夜画廊 × 纸白阅读」
  *   · 作品与图片挂在深色墙上；文字、确认与表单放在纸白卡里
  *   规则：展示用深色烘托，阅读与操作用纸白护眼（详见 docs/前端内部工程笔记.md 3.1）
  *
  * 本页承载的闭环（真实接口）：
- *   型号输入 → 校对 → 源图确认（三种形态）→ 生成进度 → 效果确认 → 时间/故事 → 归档 → 网格回显
- *   另含：刷新/离开后按 ?task= 恢复真实状态、轮询退避、页面不可见暂停、防重复提交。
+ *   上传图 → 裁切确认 → 体检 → 生成（CV 草稿动效）→ 效果确认 → 时间/故事 → 归档 → 网格回显
+ *   型号输入作为「老方式」保留在折叠区；另含刷新/离开按 ?task= 恢复、轮询退避、防重复提交。
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -163,20 +163,19 @@ export default function CabinetPage() {
       <div className="wall-gradient w-full">
         <TopBar
           mode={mockMode ? "mock" : mode === "real" ? "real" : "offline"}
-          taskLabel={task && (ui === "running" || ui === "waiting_user") ? task.progress?.label ?? null : null}
           quota={quota}
           onLogout={handleLogout}
         />
 
-        <PageShell className="!pt-10 !pb-14 sm:!pt-14 sm:!pb-20">
-          <p className="display-upper text-[13px] text-accent">MY SHOE CABINET</p>
-          <h1 className="display-upper mt-3 max-w-[560px] text-[34px] text-white sm:text-[46px]">
-            一双鞋，
-            <br />
-            就是履历上的一行
-          </h1>
-          <p className="mt-5 max-w-[520px] text-[15px] leading-relaxed text-muted">
-            上传一张您那双鞋的照片，它会变成一张黑白线稿，收进您的鞋柜。线下穿旧的鞋，在这里留下痕迹。
+        {/* 首屏要在一屏内露出「上传入口 + 我的鞋柜标题」：Hero 收紧（标题变小、间距变紧、文案压到两行） */}
+        <PageShell className="!pt-6 !pb-8 sm:!pt-8 sm:!pb-10">
+          <p className="display-upper text-[12.5px] text-accent">MY SHOE CABINET</p>
+          <h1 className="display-upper mt-2 text-[30px] text-white sm:text-[34px]">鞋历</h1>
+          <p className="mt-2 max-w-[560px] text-[15px] leading-snug text-accent">
+            收藏的不只是球鞋，是走过的日子。
+          </p>
+          <p className="mt-2 max-w-[560px] text-[13.5px] leading-relaxed text-muted">
+            上传一张您那双鞋的照片，它会变成一张黑白线稿，收进您的鞋柜。
           </p>
           {!canGenerate ? (
             <div className="mt-6 max-w-[640px] rounded-[var(--radius-btn)] border border-warn/30 bg-warn/[0.08] px-4 py-3 text-[13px] leading-relaxed text-ink">
@@ -184,7 +183,7 @@ export default function CabinetPage() {
               已归档的鞋柜仍可正常查看、编辑与删除。
             </div>
           ) : null}
-          <div className="mt-9 max-w-[640px]">
+          <div className="mt-6 max-w-[640px]">
             {upload.phase === "empty" ? (
               <>
                 <UploadEntry
@@ -210,14 +209,14 @@ export default function CabinetPage() {
             ) : null}
           </div>
           {flow.restoring ? (
-            <p className="mt-3 text-[12.5px] text-faint">正在恢复上次的任务…</p>
+            <p className="mt-3 text-[12.5px] text-faint">正在恢复上次的进度…</p>
           ) : null}
         </PageShell>
       </div>
 
       {/* 画廊墙：作品与流程 */}
       <main className="w-full bg-[#0a0b1e]">
-        <PageShell className="!py-12">
+        <PageShell className="!py-8">
           {flow.error ? (
             <div className="mb-6">
               <Card className="px-5 py-4">
@@ -336,10 +335,10 @@ export default function CabinetPage() {
               {task.state === "interrupted" || task.state === "failed" ? (
                 <Card className="px-5 py-5 sm:px-6">
                   <h2 className="text-[17px] font-semibold text-ink">
-                    {task.state === "interrupted" ? "任务已暂停" : "这次没有画出可交付的线稿"}
+                    {task.state === "interrupted" ? "任务已暂停" : "这次没画好"}
                   </h2>
                   <p className="mt-2 text-[13.5px] leading-relaxed text-muted">
-                    {task.error?.message ?? "可以换一张参考图，或重新输入型号再试一次。"}
+                    {task.error?.message ?? "可以重新生成一次，或换一张更清晰的正侧面图再试。"}
                   </p>
                   <div className="mt-4 flex flex-wrap gap-2">
                     <button
@@ -382,8 +381,9 @@ export default function CabinetPage() {
             </div>
           ) : null}
 
-          <footer className="mt-16 border-t border-line pt-6 text-[12.5px] leading-relaxed text-faint">
-            <p>个人纪念性再创作，商标归原品牌所有；图源来自公开检索。</p>
+          <footer className="mt-12 border-t border-line pt-6 text-[12.5px] leading-relaxed text-faint">
+            <p>鞋历 · 收藏的不只是球鞋，是走过的日子。</p>
+            <p className="mt-1">个人纪念性再创作，商标归原品牌所有；图源来自公开检索。</p>
             <p className="mt-1">您的鞋柜只保存在您自己的服务端文件里，默认不外传、不用于训练。</p>
           </footer>
         </PageShell>
