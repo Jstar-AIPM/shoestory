@@ -83,14 +83,14 @@ def run_flow(
     first = response.json()
     step("体检·CV 定位（本机计算）", started, tier=first["tier"], subject=first["subject"])
 
-    if first["tier"] == "multi" and crop_arg is None and not args_has_crop:
-        report["conclusion"] = "需要人工框选（未通过）"
-        report["reason"] = (
-            f"CV 判定图里有多个候选主体（count={first['subject']['count']}）——"
-            "可能是列表页/带 App 界面，也可能是背景干扰。自动建议框在这种情况下不可信，"
-            "本脚本不替用户猜：请用 --crop x,y,w,h 指定裁切框后重跑。"
+    # CV 判 multi 时（商品页截图常见）：产品的真实行为是"给出建议框，让用户确认后再交给 AI 体检"。
+    # 脚本照做，但在报告里标注，避免看起来像"自动框一定可信"。
+    report["cv_multi"] = first["tier"] == "multi"
+    if report["cv_multi"]:
+        report["cv_multi_note"] = (
+            f"CV 在整图里看到 {first['subject']['count']} 个候选（商品页重复图/界面元素所致）；"
+            "按产品行为用建议框继续，由 AI 体检在裁切图上判定。"
         )
-        return report
 
     reported = f"{first['image']['width']}x{first['image']['height']}"
     report["checks"]["size_contract"] = reported == f"{expect_w}x{expect_h}"

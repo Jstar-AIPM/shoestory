@@ -260,3 +260,49 @@ def test_daily_inspect_guard(settings, tmp_path) -> None:
         blocked = client.post("/api/v1/inspect", json=body)
         assert blocked.status_code == 429, blocked.text
         assert "QUOTA_EXCEEDED" in json.dumps(blocked.json(), ensure_ascii=False)
+
+
+def test_multi_crop_is_overridden_by_vision_when_it_sees_one_shoe(api: TestClient, monkeypatch) -> None:
+    """回归（线上 AF1/AJ36 实测）：CV 在用户框好的区域里看到"第二个候选"时，先问视觉模型。
+
+    商品页截图里同一双鞋会重复出现，加上饰片/文字块/∞ 标记，CV 很容易少数服从多数地判 multi；
+    用户已经确认过框了，此时视觉模型认出"只有一双鞋"就应该放行（最多给一句软提示）。
+    """
+    image = Image.new("RGB", (1200, 1600), "white")
+    draw = ImageDraw.Draw(image)
+    # 框里放两个"像鞋"的深色块：CV 必然判 multi（宽高比 2:1 的两个候选）
+    draw.ellipse((100, 300, 500, 500), fill="#223399")
+    draw.ellipse((100, 700, 500, 900), fill="#223399")
+    buffer = io.BytesIO()
+    image.save(buffer, "PNG")
+    payload = base64.b64encode(buffer.getvalue()).decode()
+
+    def fake_inspect(self, *, image: bytes, recorder) -> PhotoInspectOut:  # noqa: ANN001
+        return PhotoInspectOut(is_shoe=True, confidence=0.95, shoe_count=1, brand="Nike", model_name="Air Force 1")
+
+    monkeypatch.setattr("app.services.providers.mock.MockQualityJudge.inspect_photo", fake_inspect)
+
+    data = _inspect(api, image=payload, crop={"x": 80, "y": 280, "w": 440, "h": 640}).json()
+    assert data["tier"] == "ok", data
+    assert data["detail"]["display_name"] == "Nike Air Force 1"
+    assert data["subject"]["count"] == 1
+
+
+def test_multi_crop_still_asks_to_recrop_when_vision_sees_two(api: TestClient, monkeypatch) -> None:
+    """视觉模型也认为框里不止一双时，仍然要提示重新框选（不能一律放行）。"""
+    image = Image.new("RGB", (1200, 1600), "white")
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((100, 300, 500, 500), fill="#223399")
+    draw.ellipse((100, 700, 500, 900), fill="#223399")
+    buffer = io.BytesIO()
+    image.save(buffer, "PNG")
+    payload = base64.b64encode(buffer.getvalue()).decode()
+
+    def fake_inspect(self, *, image: bytes, recorder) -> PhotoInspectOut:  # noqa: ANN001
+        return PhotoInspectOut(is_shoe=True, confidence=0.9, shoe_count=2, brand="Nike", model_name="Air Force 1")
+
+    monkeypatch.setattr("app.services.providers.mock.MockQualityJudge.inspect_photo", fake_inspect)
+
+    data = _inspect(api, image=payload, crop={"x": 80, "y": 280, "w": 440, "h": 640}).json()
+    assert data["tier"] == "multi"
+    assert "不止一双" in data["message"]

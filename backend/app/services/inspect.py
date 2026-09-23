@@ -121,7 +121,25 @@ def inspect_upload(
     cropped_array = np.array(cropped)
     crop_verdict = judge_subjects(cropped_array)
 
+    # CV 说"框里不止一双"：**先问 AI 再下结论**（2026-09-23 线上实测修正）
+    # 得物这类商品页截图里，同一双鞋会重复出现多张图，加上 App 界面元素，
+    # CV 很容易在用户框好的区域里看到"第二个候选"（饰片、文字块、∞ 标记…）。
+    # 用户已经确认过框了，此时更应该听视觉模型的判断：它认出只有一双鞋 → 放行（只给软提示）。
     if crop_verdict.status == "multi":
+        vision = providers.judge.inspect_photo(image=_png_bytes(cropped), recorder=recorder)
+        if vision.tier == "shoe" and vision.shoe_count <= 1:
+            result = InspectResult(
+                tier=TIER_OK,
+                message=f"认出来了：{vision.display_name}。" if vision.display_name else "已经认出这双鞋。",
+                hint="您框住的这一双我认得，直接开始画就好；不放心也可以再收一收方框。",
+                crop=crop,
+                image_size=size,
+                subject_status=crop_verdict.status,
+                subject_count=1,
+                vision=vision,
+                extra={"logo": vision.logo.model_dump(), "texts": [t.model_dump() for t in vision.texts]},
+            )
+            return result
         return InspectResult(
             tier=TIER_MULTI,
             message="这个框里还是有不止一双鞋，我分不清您想画哪一双。",
@@ -129,7 +147,8 @@ def inspect_upload(
             crop=crop,
             image_size=size,
             subject_status=crop_verdict.status,
-            subject_count=len(crop_verdict.subjects),
+            subject_count=max(len(crop_verdict.subjects), vision.shoe_count),
+            vision=vision,
         )
 
     vision = providers.judge.inspect_photo(image=_png_bytes(cropped), recorder=recorder)
