@@ -386,7 +386,7 @@ export default function CabinetPage() {
           ) : null}
 
           <footer className="mt-12 border-t border-line pt-6 text-[12.5px] leading-relaxed text-faint">
-            <p>鞋历 · 收藏的不只是球鞋，是走过的日子。</p>
+            {/* 品牌 slogan 只在顶栏出现一次（同一屏重复没有必要） */}
             <p className="mt-1">个人纪念性再创作，商标归原品牌所有；图源来自公开检索。</p>
             <p className="mt-1">您的鞋柜只保存在您自己的服务端文件里，默认不外传、不用于训练。</p>
           </footer>
