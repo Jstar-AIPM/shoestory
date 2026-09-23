@@ -33,3 +33,17 @@ jobs:
             echo "无 Key 时冒烟脚本必须以退出码 2 表示“待验”"; exit 1
           fi
           grep -q "待验" ../docs/早期冒烟报告.md
+
+      - name: V2 上传冒烟脚本自检（mock 干跑：链路能通，且绝不写成“通过”）
+        run: |
+          python - <<'PY'
+          from PIL import Image, ImageDraw
+          img = Image.new("RGB", (1500, 1000), "white")
+          ImageDraw.Draw(img).ellipse((250, 350, 1250, 750), fill="#3344cc")
+          img.save("/tmp/ci-shoe.png")
+          PY
+          python scripts/smoke_upload.py --image /tmp/ci-shoe.png --force-mock || code=$?
+          if [ "${code:-0}" != "2" ]; then
+            echo "mock 干跑必须以退出码 2 结束（表示“未验收”）"; exit 1
+          fi
+          grep -q "演示模式（未验收）" ../docs/smoke-report-v2-upload.md
