@@ -102,7 +102,7 @@ export function GenerationProgress({ task }: { task: TaskOut }) {
             <details className="mt-3 text-[12.5px] text-faint">
               <summary className="cursor-pointer select-none">过程详情</summary>
               <p className="mt-2">
-                已调用上游 {task.upstream_calls} 次｜调用次数 {task.est_cost_cny}｜当前步骤：
+                已调用上游 {task.upstream_calls} 次｜当前步骤：
                 {task.progress?.step ?? "—"}
               </p>
             </details>

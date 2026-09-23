@@ -115,7 +115,7 @@ def run_flow(
     response.raise_for_status()
     inspected = response.json()
     step(
-        "体检·AI 识别（本机计算）",
+        "体检·AI 识别",
         started,
         tier=inspected["tier"],
         display_name=inspected["detail"]["display_name"],
@@ -270,7 +270,7 @@ def write_report(report: dict, provider_info: dict, filename: str = "smoke-repor
         f"- 状态轨迹：{' → '.join(report.get('states_seen', [])) or '—'}",
         f"- 最终状态：{report.get('final_state', '—')}",
         f"- 归档标题（体检识别）：{report.get('query', '—')}",
-        f"- 上游调用次数：{report.get('upstream_calls', '—')}｜上游调用：{report.get('est_cost_cny', '—')}",
+        f"- 上游调用次数：{report.get('upstream_calls', '—')}",
         f"- 生成次数（含自动重试）：{report.get('attempts', '—')}｜是否**首次即达标**：{report.get('passed_first_attempt', '—')}",
         "",
         "## V2 特有自检（坐标约定与动效素材）",

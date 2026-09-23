@@ -282,7 +282,7 @@ export function CropConfirm({
         </Button>
       </div>
       <p className="mt-2.5 text-[12.5px] text-faint">
-        确认后会识别这是不是鞋、是什么鞋（本机计算），还不开始画。
+        确认后会识别这是不是鞋、是什么鞋，还不开始画。
       </p>
     </Card>
   );

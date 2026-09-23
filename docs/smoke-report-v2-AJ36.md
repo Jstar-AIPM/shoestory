@@ -18,14 +18,14 @@
 | 步骤 | 耗时（秒） | 备注 |
 | --- | --- | --- |
 | 体检·CV 定位（本机计算） | 2.05 | {"tier": "multi", "subject": {"status": "multi", "count": 3}} |
-| 体检·AI 识别（本机计算） | 9.44 | {"tier": "ok", "display_name": "Jordan Air Jordan 36", "logo": "无限符号（∞）", "texts": []} |
+| 体检·AI 识别 | 9.44 | {"tier": "ok", "display_name": "Jordan Air Jordan 36", "logo": "无限符号（∞）", "texts": []} |
 | 建任务（上传图） | 1.11 | {"state": "preprocessing", "archive_name": "Jordan Air Jordan 36"} |
 | 取画稿并自检 | 0.12 | {"canvas_score": 1.0} |
 
 - 状态轨迹：preprocessing → generating → verifying → awaiting_effect_confirm
 - 最终状态：awaiting_effect_confirm
 - 归档标题（体检识别）：Jordan Air Jordan 36
-- 上游调用次数：2｜上游调用：
+- 上游调用次数：2
 - 生成次数（含自动重试）：1｜是否**首次即达标**：True
 
 ## V2 特有自检（坐标约定与动效素材）
@@ -140,4 +140,4 @@
 ## 诚实性声明
 
 - 本报告由脚本自动生成，未经人工改写；`conclusion=待验` 表示**没有**执行真实调用。
-- mock 结果不会写成本报告的“通过”。
+- mock 结果不会写成报告的“通过”。

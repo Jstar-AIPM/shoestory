@@ -45,7 +45,7 @@ def style_blocking_issues(
     “hatch_suspect 是硬判据，其余是指标观察区间”，但代码把**任何**区间偏离都当不合格 ——
     于是一张质检 0.93、Logo 实心、鞋带正确的好画稿，因为
     `filled_block_share=0.0149 < 0.020`（V2 规则只许 Logo 填色，实心块本来就少）
-    被判不合格，白烧两次生成（本机计算）并给用户看失败页。
+    被判不合格，白烧两次生成并给用户看失败页。
     """
     out: list[str] = []
     for key in hard_keys or []:

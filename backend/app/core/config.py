@@ -128,7 +128,7 @@ class Settings(BaseSettings):
     warmup_timeout_seconds: float = 15.0
 
     # ---------- 上传图体检（V2）----------
-    #: 每人每天最多体检几次（防手滑刷成本；0 = 不限）。线上每次约 
+    #: 每人每天最多体检几次（防止误操作造成无谓的调用；0 = 不限）
     max_inspect_per_day: int = 50
     #: 上传图解码后的最大边长（超出会自动等比缩小，保护内存与上游）
     max_upload_edge: int = 2400
