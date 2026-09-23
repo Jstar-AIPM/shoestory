@@ -49,7 +49,7 @@ export function CabinetGrid({
         <Card className="mt-4 border-dashed px-6 py-12 text-center shadow-none">
           <p className="text-[17px] font-semibold text-ink">鞋柜还是空的</p>
           <p className="mx-auto mt-2 max-w-[420px] text-[13.5px] text-muted">
-            在上面输入一双您真正拥有的鞋的型号，比如 <code className="text-ink">kd12</code>。
+            在上面上传一张您那双鞋的照片（白底、正侧面最好，比如商品详情页长按保存的原图）。
             它会变成一张黑白线稿，成为您鞋柜里的第一行履历。
           </p>
         </Card>

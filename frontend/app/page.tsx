@@ -176,7 +176,7 @@ export default function CabinetPage() {
             就是履历上的一行
           </h1>
           <p className="mt-5 max-w-[520px] text-[15px] leading-relaxed text-muted">
-            输入鞋款型号，它会变成一张黑白线稿，收进您的鞋柜。线下穿旧的鞋，在这里留下痕迹。
+            上传一张您那双鞋的照片，它会变成一张黑白线稿，收进您的鞋柜。线下穿旧的鞋，在这里留下痕迹。
           </p>
           {!canGenerate ? (
             <div className="mt-6 max-w-[640px] rounded-[var(--radius-btn)] border border-warn/30 bg-warn/[0.08] px-4 py-3 text-[13px] leading-relaxed text-ink">
