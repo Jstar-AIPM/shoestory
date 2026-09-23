@@ -249,7 +249,7 @@ class InviteStore:
                     # 硬保护：管理员码不可作废，否则会把自己锁在门外
                     raise AppError(
                         ErrorCode.FORBIDDEN,
-                        message="管理员码不能作废（否则你自己的鞋柜会进不去）。",
+                        message="管理员码不能作废（否则您自己的鞋柜会进不去）。",
                     )
                 item.status = "revoked"
                 self._save(codes)

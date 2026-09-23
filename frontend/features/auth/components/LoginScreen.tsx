@@ -42,8 +42,8 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
         <p className="display-upper text-[13px] text-accent">MY SHOE CABINET</p>
         <h1 className="display-upper mt-3 text-[30px] text-white sm:text-[34px]">履历 · 我的鞋柜</h1>
         <p className="mt-4 text-[14px] leading-relaxed text-muted">
-          这是私人的球鞋纪念档案。请输入你收到的邀请码进入**你自己的**鞋柜 ——
-          一个邀请码对应一个独立鞋柜，别人看不到你的鞋，你也看不到别人的。
+          这是私人的球鞋纪念档案。请输入您收到的邀请码进入**您自己的**鞋柜 ——
+          一个邀请码对应一个独立鞋柜，别人看不到您的鞋，您也看不到别人的。
         </p>
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">

@@ -50,7 +50,7 @@ export function ArchiveForm({
     <Card className="px-5 py-5 sm:px-6">
       <h2 className="text-[17px] font-semibold text-ink">给「{modelName}」记一笔（选填）</h2>
       <p className="mt-2 text-[13px] text-muted">
-        时间怎么写都行；故事只有你自己能看到。两项都可以跳过。
+        时间怎么写都行；故事只有您自己能看到。两项都可以跳过。
       </p>
 
       <div className="mt-4 space-y-4">
@@ -79,7 +79,7 @@ export function ArchiveForm({
             maxLength={2000}
             value={story}
             onChange={(event) => setStory(event.target.value)}
-            placeholder="这双鞋陪你经历了什么？（可不填）"
+            placeholder="这双鞋陪您经历了什么？（可不填）"
             className="mt-1.5"
           />
         </div>

@@ -24,7 +24,7 @@ export function ResolveFeedback({
         <>
           <h2 className="text-[17px] font-semibold text-ink">没找到「{task.query}」这个型号</h2>
           <p className="mt-2 text-[13.5px] leading-relaxed text-muted">
-            我不会硬编一个型号糊弄你。可以选一个相近的型号重新试，或直接改输入：
+            我不会硬编一个型号糊弄您。可以选一个相近的型号重新试，或直接改输入：
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {(info?.candidates ?? []).map((candidate) => (

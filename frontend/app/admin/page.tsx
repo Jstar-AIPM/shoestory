@@ -158,7 +158,7 @@ export default function AdminPage() {
           <Card className="px-5 py-5 sm:px-6">
             <h2 className="text-[17px] font-semibold text-ink">新建邀请码</h2>
             <p className="mt-1.5 text-[13px] text-muted">
-              默认：有效期 30 天、最多 20 次生成。备注只你自己看得到（例如&quot;给 A 公司面试官&quot;）。
+              默认：有效期 30 天、最多 20 次生成。备注只有您自己看得到（例如&quot;给 A 公司面试官&quot;）。
             </p>
             <div className="mt-4 flex flex-col gap-3 sm:flex-row">
               <Input

@@ -46,7 +46,7 @@ def login(payload: LoginIn, request: Request, response: Response) -> LoginOut:
         expires_at=session.expires_at,
         code_expires_at=record.expires_at,
         remaining=record.remaining,
-        message="已进入你的鞋柜" if record.role != "admin" else "已进入管理员模式",
+        message="已进入您的鞋柜" if record.role != "admin" else "已进入管理员模式",
     )
 
 

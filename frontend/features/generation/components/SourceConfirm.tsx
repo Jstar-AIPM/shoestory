@@ -171,8 +171,8 @@ export function SourceConfirm({
             </h2>
             <p className="mt-2 text-[13.5px] leading-relaxed text-muted">
               {task.source_mode === "single" && !expanded
-                ? "确认只需 1 秒，能避免画错、白花一次生成额度。（系统已替你选好参考图）"
-                : "点一张你想用作参考的图，再开始画。选错会让线稿偏离原鞋。"}
+                ? "确认只需 1 秒，能避免画错、白花一次生成额度。（系统已替您选好参考图）"
+                : "点一张您想用作参考的图，再开始画。选错会让线稿偏离原鞋。"}
             </p>
             {task.error ? (
               <div className="mt-3">
