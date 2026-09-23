@@ -27,6 +27,39 @@ class VerifyResult:
     issues: list[str] = field(default_factory=list)
     style_metrics: dict = field(default_factory=dict)
     style_ok: bool = True
+    #: 风格偏离中**真正算不合格**的那部分（style_ok 可能因为"观察区间"偏离而为 False，
+    #: 但那不代表不合格 —— 二者必须分开，否则会把合格产出误杀）
+    style_blocked: bool = False
+
+
+def style_blocking_issues(
+    metrics: dict,
+    targets: dict,
+    *,
+    hard_keys: list[str] | None = None,
+    hard_max: dict[str, float] | None = None,
+) -> list[str]:
+    """从风格度量里挑出**真正当闸门**的偏离。
+
+    区分来源（2026-09-23 线上真图冒烟）：风格模板里写的是
+    “hatch_suspect 是硬判据，其余是指标观察区间”，但代码把**任何**区间偏离都当不合格 ——
+    于是一张质检 0.93、Logo 实心、鞋带正确的好画稿，因为
+    `filled_block_share=0.0149 < 0.020`（V2 规则只许 Logo 填色，实心块本来就少）
+    被判不合格，白烧两次生成（本机计算）并给用户看失败页。
+    """
+    out: list[str] = []
+    for key in hard_keys or []:
+        if key not in targets:
+            continue
+        low, high = targets[key]
+        value = metrics.get(key)
+        if value is not None and not (low <= value <= high):
+            out.append(f"{key}={value} 超出硬闸门区间 [{low}, {high}]")
+    for key, ceiling in (hard_max or {}).items():
+        value = metrics.get(key)
+        if value is not None and value > ceiling:
+            out.append(f"{key}={value} 超出硬上限 {ceiling}（禁止整块涂黑）")
+    return out
 
 
 def score_and_gate(
@@ -37,6 +70,7 @@ def score_and_gate(
     *,
     style_ok: bool = True,
     style_issues: list[str] | None = None,
+    style_blocked: bool | None = None,
 ) -> tuple[float, bool, list[str]]:
     weights = dict(style.quality_gate.weights)
     scores: dict[str, float] = {
@@ -70,7 +104,9 @@ def score_and_gate(
             issues.append(f"{key} 超出硬上限（{value:.2f} > {ceiling:.2f}）")
     if not passed and score < min_score:
         issues.append(f"加权总分 {score:.2f} 低于阈值 {min_score:.2f}")
-    if not style_ok:
+    if style_blocked is None:
+        style_blocked = not style_ok
+    if style_blocked:
         # 风格一致性由确定性代码判定（参考图量化得出），不信模型
         passed = False
         issues.extend(f"风格一致性未达标：{item}" for item in (style_issues or []))
@@ -95,6 +131,12 @@ def verify_lineart(
         if isinstance(values, (list, tuple)) and len(values) == 2
     }
     style_ok, style_issues = compare_to_targets(style_metrics, targets)
+    blocking = style_blocking_issues(
+        style_metrics,
+        targets,
+        hard_keys=style.quality_gate.style_hard_keys,
+        hard_max=style.quality_gate.style_hard_max,
+    )
     artwork_check = {**artwork_check, "style_metrics": style_metrics, "style_ok": style_ok}
     report = judge.judge(
         model_name=model_name,
@@ -109,7 +151,8 @@ def verify_lineart(
         style,
         settings.quality_min_score,
         style_ok=style_ok,
-        style_issues=style_issues,
+        style_issues=blocking or style_issues,
+        style_blocked=bool(blocking),
     )
     return VerifyResult(
         report=report,
@@ -119,4 +162,5 @@ def verify_lineart(
         issues=issues,
         style_metrics=style_metrics,
         style_ok=style_ok,
+        style_blocked=bool(blocking),
     )

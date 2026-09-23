@@ -10,7 +10,7 @@ from app.core.config import STYLES_DIR, Settings
 from app.schemas.llm import QualityReportOut
 from app.services.cv.binarize import check_artwork, refine_lineart
 from app.services.style.registry import StyleRegistry
-from app.services.tools.verify_lineart import score_and_gate
+from app.services.tools.verify_lineart import score_and_gate, style_blocking_issues
 
 
 def png_bytes(width: int, height: int, *, mode: str = "L", value: int = 255) -> bytes:
@@ -155,6 +155,88 @@ def test_text_legible_is_soft_and_does_not_fail() -> None:
     )
     _score, passed, _issues = score_and_gate(garbled_text, 1.0, style, 0.80)
     assert passed is True, "text_legible 不应成为成败门槛"
+
+
+# ---------------- 风格区间的"硬/软"边界（线上真图冒烟修正，2026-09-23）----------------
+
+#: 线上真图冒烟那一次的**实测**风格度量（docs/smoke-report-v2-upload.md）
+#: 画稿本身是对的（质检 0.9325、Logo 实心、鞋带非实心、无排线）
+REAL_CASE_METRICS = {
+    "hatch_suspect": 0.0,
+    "ink_ratio": 0.0545,
+    "solid_black_share": 0.0537,
+    "filled_block_share": 0.0149,  # ← 只有这一项低于观察区间下限，旧逻辑就靠它把任务判失败
+}
+
+REAL_CASE_REPORT = QualityReportOut(
+    shoe_silhouette_match=0.92,
+    logo_legibility=0.95,
+    style_consistency=0.90,
+    noise_level=0.93,
+    logo_filled=1.0,
+    laces_solid_ratio=0.0,
+    text_legible=0.0,
+)
+
+
+def _targets() -> dict:
+    style = default_style()
+    return {
+        key: (float(values[0]), float(values[1]))
+        for key, values in (style.quality_gate.style_metrics or {}).items()
+    }
+
+
+def test_real_case_filled_block_below_band_does_not_block() -> None:
+    """回归（真图实测）：只填 Logo 的正确画稿，实心块占比会低于旧下限 —— 不应判不合格。
+
+    V2 填色规则就是"只填 Logo，中底/鞋面/鞋带一律不得涂实"，所以实心块本来就少；
+    "Logo 到底填没填实" 已由语义闸门 logo_filled 负责，用像素占比当硬闸门会误杀。
+    """
+    style = default_style()
+    blocking = style_blocking_issues(
+        REAL_CASE_METRICS,
+        _targets(),
+        hard_keys=style.quality_gate.style_hard_keys,
+        hard_max=style.quality_gate.style_hard_max,
+    )
+    assert blocking == [], f"这些偏离不应阻塞：{blocking}"
+
+    score, passed, _issues = score_and_gate(
+        REAL_CASE_REPORT, 1.0, style, 0.80, style_ok=False, style_blocked=False
+    )
+    assert score >= 0.90
+    assert passed is True, "画稿正确、总分达标、硬闸门全过 → 必须判合格"
+
+
+def test_hatch_strokes_still_block() -> None:
+    """排线/素描笔触仍然是硬闸门（唯一能区分干净线稿与排线的指标）。"""
+    style = default_style()
+    blocked = style_blocking_issues(
+        {**REAL_CASE_METRICS, "hatch_suspect": 34},
+        _targets(),
+        hard_keys=style.quality_gate.style_hard_keys,
+        hard_max=style.quality_gate.style_hard_max,
+    )
+    assert any("hatch_suspect" in item for item in blocked)
+
+    _score, passed, issues = score_and_gate(
+        REAL_CASE_REPORT, 1.0, style, 0.80, style_ok=False, style_blocked=True, style_issues=blocked
+    )
+    assert passed is False
+    assert any("风格一致性未达标" in item for item in issues)
+
+
+def test_whole_area_blackened_still_blocks() -> None:
+    """把中底/鞋面整块涂黑（大面积涂黑超上限）仍然不合格 —— 这是产品规则，不能放松。"""
+    style = default_style()
+    blocked = style_blocking_issues(
+        {**REAL_CASE_METRICS, "filled_block_share": 0.14},
+        _targets(),
+        hard_keys=style.quality_gate.style_hard_keys,
+        hard_max=style.quality_gate.style_hard_max,
+    )
+    assert any("filled_block_share" in item for item in blocked)
 
 
 def test_settings_defaults_match_confirmed_decisions() -> None:

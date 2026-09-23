@@ -299,14 +299,26 @@ class PipelineRunner:
                 return
 
             if record.attempts.used_in_round >= max_attempts:
-                style_blocked = not result.style_ok
+                style_blocked = result.style_blocked
+                # 文案得对得上用户走的路径：上传图没有"候选图"可换（V1 时代的话术）
+                if record.inspect is not None:
+                    style_message = (
+                        "这张照片画出来的线稿不符合风格要求（例如画面出现排线/素描笔触，"
+                        "或把中底、鞋面涂成了大块黑色）——建议换一张更清晰的正侧面图重传。"
+                    )
+                    style_suggestion = "重新上传一张正侧面图"
+                else:
+                    style_message = (
+                        "这张参考图可能不适合做线稿（例如是两只鞋的合影、角度不是正侧面、"
+                        "或本身就是深色鞋）——建议换一张候选图再试。"
+                    )
+                    style_suggestion = "换一张候选参考图"
                 self._fail(
                     record,
                     AppError(
                         ErrorCode.VERIFY_FAILED,
                         message=(
-                            "这张参考图可能不适合做线稿（例如是两只鞋的合影、角度不是正侧面、"
-                            "或本身就是深色鞋）——建议换一张候选图再试。"
+                            style_message
                             if style_blocked
                             else (
                                 f"连续 {max_attempts} 次质检都没通过，已把最接近的一张交给您裁决。"
@@ -317,8 +329,9 @@ class PipelineRunner:
                             "issues": result.issues,
                             "best_attempt": best.attempt,
                             "style_ok": result.style_ok,
+                            "style_blocked": result.style_blocked,
                             "style_metrics": result.style_metrics,
-                            "suggestion": "换一张候选参考图" if style_blocked else None,
+                            "suggestion": style_suggestion if style_blocked else None,
                         },
                     ),
                     trace,

@@ -49,6 +49,10 @@ class QualityGate(BaseModel):
     hard_gate: dict[str, float] = Field(default_factory=dict)
     #: 硬上限闸门：value > 上限 -> 不合格（如 laces_solid_ratio 鞋带不得实心）
     hard_max: dict[str, float] = Field(default_factory=dict)
+    #: 风格指标的硬闸门：**只把**这些 key 的偏离当不合格，其余 style_metrics 只报告
+    style_hard_keys: list[str] = Field(default_factory=list)
+    #: 风格指标的硬上限（如「大面积涂黑」上限）：value > 上限 -> 不合格
+    style_hard_max: dict[str, float] = Field(default_factory=dict)
     min_score: float = 0.80
     #: 风格一致性闸门：metric -> [low, high]，由参考图量化得出，由代码判定
     style_metrics: dict[str, list[float]] = Field(default_factory=dict)
