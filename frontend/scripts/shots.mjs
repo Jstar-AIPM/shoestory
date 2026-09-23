@@ -19,7 +19,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = resolve(HERE, "../../docs/screenshots");
 const BASE_URL = process.env.BASE_URL ?? "http://127.0.0.1:3311";
 
-/** 目标宽度（前端工程约定 16.1：390 / 768 / 1280 / 1440） */
+/** 目标宽度（390 / 768 / 1280 / 1440） */
 const TARGETS = [
   { name: "desktop-1280", width: 1280, height: 900, scale: 1 },
   { name: "desktop-1440", width: 1440, height: 900, scale: 1 },

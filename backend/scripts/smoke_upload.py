@@ -355,6 +355,9 @@ def main() -> int:
     )
     parser.add_argument("--report", default="smoke-report-v2-upload.md", help="报告文件名（写到 docs/ 下）")
     args = parser.parse_args()
+    # mock 干跑不能覆盖真实的验收报告（那是证据）
+    if args.force_mock and args.report == "smoke-report-v2-upload.md":
+        args.report = "smoke-report-demo.md"
 
     image_path = Path(args.image).expanduser()
     if not image_path.is_file():

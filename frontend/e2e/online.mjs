@@ -20,13 +20,16 @@
  * GENERATE=0 时只验证登录门与浏览，不产生模型费用。
  */
 import { mkdir } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
 
 const BASE_URL = process.env.BASE_URL ?? "";
 const ADMIN_CODE = process.env.LVLI_ADMIN_CODE ?? "";
 const QUERY = process.env.QUERY ?? "nike kd 12";
 const DO_GENERATE = (process.env.GENERATE ?? "1") !== "0";
-const OUT = "./docs/screenshots";
+const HERE = dirname(fileURLToPath(import.meta.url));
+const OUT = process.env.SHOT_DIR ?? resolve(HERE, "../../docs/screenshots");
 const STEP_TIMEOUT = 180_000; // 线上有冷启动，给足余量
 const SHORT = 60_000;
 

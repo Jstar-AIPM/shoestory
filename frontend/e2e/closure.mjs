@@ -9,11 +9,14 @@
  * 费用：每次生成约 （真实模型）。无 BACKEND/Key 时请先启动后端。
  */
 import { mkdir } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
 
 const BASE_URL = process.env.BASE_URL ?? "http://127.0.0.1:3311";
 const QUERY = process.env.QUERY ?? "kd12";
-const OUT = "./docs/screenshots";
+const HERE = dirname(fileURLToPath(import.meta.url));
+const OUT = process.env.SHOT_DIR ?? resolve(HERE, "../../docs/screenshots");
 const STEP_TIMEOUT = 120_000;
 const SHORT = 60_000;
 

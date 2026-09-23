@@ -7,12 +7,15 @@
  * 用法：node scripts/record-demo.mjs  （需后端 8787 与前端 3311 均在运行；会真实生成，约 ）
  */
 import { mkdir } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { chromium } from "@playwright/test";
 
 const BASE_URL = process.env.BASE_URL ?? "http://127.0.0.1:3311";
 const QUERY = process.env.QUERY ?? "kd12";
-const OUT = "./docs/demo";
+const HERE = dirname(fileURLToPath(import.meta.url));
+const OUT = process.env.SHOT_DIR ?? resolve(HERE, "../../docs/demo");
 
 const run = async () => {
   await mkdir(OUT, { recursive: true });

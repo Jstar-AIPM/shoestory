@@ -6,8 +6,12 @@
  *   BACKEND_URL=http://127.0.0.1:8788 npm run build && npx next start -p 3312
  *   BASE_URL=http://127.0.0.1:3312 node scripts/auth-check.mjs
  */
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { chromium } from "@playwright/test";
-const OUT = "./docs/screenshots";
+const HERE = dirname(fileURLToPath(import.meta.url));
+const OUT = process.env.SHOT_DIR ?? resolve(HERE, "../../docs/screenshots");
 const BASE = process.env.BASE_URL ?? "http://127.0.0.1:3312";
 const GUEST = process.env.GUEST_CODE ?? "GUEST-TEST";
 const ADMIN = process.env.ADMIN_CODE ?? "ADMIN-TEST";

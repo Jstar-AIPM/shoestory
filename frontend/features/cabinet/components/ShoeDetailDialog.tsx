@@ -5,7 +5,7 @@
  *
  * 能力：查看 / 编辑（型号·时间·故事）/ 删除（二次确认）/ 上一双·下一双 / 手机左右滑
  * 说明：
- * · 用 Radix Dialog 保证焦点约束、Esc 关闭与 ARIA（前端工程约定 17）；
+ * · 用 Radix Dialog 保证焦点约束、Esc 关闭与 ARIA；
  * · 翻页信息由后端按当前排序算好（position/total/prev_shoe_id/next_shoe_id），前端不自己分页；
  * · 删除是真实删除（后端需 confirm=true），成功后通知外层刷新鞋柜；
  * · 编辑/删除都以后端返回为准，不做乐观更新。

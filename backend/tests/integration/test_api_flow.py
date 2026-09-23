@@ -268,9 +268,10 @@ def test_date_parse_endpoint_matches_rules(client: TestClient) -> None:
     assert "排在最后" in bad["hint"]
 
 
-def test_acceptance_ui_is_served(client: TestClient) -> None:
-    page = client.get("/")
-    assert page.status_code == 200
-    assert "我的鞋柜" in page.text
-    assert client.get("/static/accept.js").status_code == 200
-    assert client.get("/static/accept.css").status_code == 200
+def test_legacy_single_page_ui_is_retired(client: TestClient) -> None:
+    """阶段 1 那个单 HTML 验收界面已下线（正式前端是 Next.js，独立部署）。
+
+    后端现在只提供 /api/v1/*；根路径返回 404，避免两套界面并存造成误解。
+    """
+    assert client.get("/").status_code == 404
+    assert client.get("/static/accept.js").status_code == 404

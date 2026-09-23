@@ -18,13 +18,16 @@
  * 会真实生成一双（本机计算）并留下一条归档；CI 不跑这个脚本。
  */
 import { mkdir } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
 import { chromium } from "@playwright/test";
 
 const BASE_URL = process.env.BASE_URL ?? "";
 const ADMIN_CODE = process.env.LVLI_ADMIN_CODE ?? "";
 const IMAGE = process.env.IMAGE ?? "";
-const OUT = process.env.SHOT_DIR ?? "./docs/screenshots";
+const HERE = dirname(fileURLToPath(import.meta.url));
+const OUT = process.env.SHOT_DIR ?? resolve(HERE, "../../docs/screenshots");
 const STEP_TIMEOUT = 240_000; // 线上冷启动 + 生成 30–60s，给足余量
 const SHORT = 60_000;
 

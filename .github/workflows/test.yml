@@ -28,11 +28,11 @@ jobs:
 
       - name: 冒烟脚本自检（无 Key 时必须如实报告“待验”，不得冒充通过）
         run: |
-          python scripts/smoke_real.py --query "kd12" || code=$?
+          python scripts/smoke_real.py --query "kd12" --report .smoke-CI.md || code=$?
           if [ "${code:-0}" != "2" ]; then
             echo "无 Key 时冒烟脚本必须以退出码 2 表示“待验”"; exit 1
           fi
-          grep -q "待验" ../docs/早期冒烟报告.md
+          grep -q "待验" ../docs/.smoke-CI.md
 
       - name: V2 上传冒烟脚本自检（mock 干跑：链路能通，且绝不写成“通过”）
         run: |
@@ -46,4 +46,4 @@ jobs:
           if [ "${code:-0}" != "2" ]; then
             echo "mock 干跑必须以退出码 2 结束（表示“未验收”）"; exit 1
           fi
-          grep -q "演示模式（未验收）" ../docs/smoke-report-v2-upload.md
+          grep -q "演示模式（未验收）" ../docs/smoke-report-demo.md

@@ -12,8 +12,7 @@ from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 
 from app.api.v1 import admin as admin_router
 from app.api.v1 import archive as archive_router
@@ -29,9 +28,6 @@ from app.services.prompts.loader import prompt_inventory
 from app.services.workflow.recovery import recover_on_startup
 
 logger = logging.getLogger("app")
-
-STATIC_DIR = Path(__file__).resolve().parent / "static"
-
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings()
@@ -121,14 +117,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(archive_router.router, prefix="/api/v1")
     app.include_router(auth_router.router, prefix="/api/v1")
     app.include_router(admin_router.router, prefix="/api/v1")
-
-    # ---------------- 最小验收界面（单 HTML，无构建） ----------------
-    if STATIC_DIR.is_dir():
-        app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
-
-        @app.get("/", include_in_schema=False)
-        def index() -> FileResponse:
-            return FileResponse(STATIC_DIR / "accept.html")
 
     return app
 

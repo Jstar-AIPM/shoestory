@@ -2,7 +2,7 @@
 
 /**
  * 对话框：仅引入 Radix Dialog 一个包（无样式组件库），
- * 由它负责焦点约束、Esc 关闭、ARIA 角色（前端工程约定 17 节）。
+ * 由它负责焦点约束、Esc 关闭、ARIA 角色（节）。
  * 视觉完全自建，与项目主题一致。
  */
 import * as RadixDialog from "@radix-ui/react-dialog";

@@ -1,4 +1,4 @@
-/** 错误归一化：后端错误结构 → 前端 AppError（前端工程约定 12.3） */
+/** 错误归一化：后端错误结构 → 前端 AppError */
 import { describe, expect, it } from "vitest";
 
 import { NETWORK_ERROR, TIMEOUT_ERROR, normalizeError } from "../lib/api/errors";

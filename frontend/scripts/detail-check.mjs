@@ -1,6 +1,10 @@
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { chromium } from "@playwright/test";
 const BASE = "http://127.0.0.1:3311";
-const OUT = "./docs/screenshots";
+const HERE = dirname(fileURLToPath(import.meta.url));
+const OUT = process.env.SHOT_DIR ?? resolve(HERE, "../../docs/screenshots");
 const log = (s, ok, extra = "") => console.log(`  ${ok ? "✅" : "❌"} ${s}${extra ? "｜" + extra : ""}`);
 let bad = 0;
 const check = (s, ok, extra) => { log(s, ok, extra); if (!ok) bad++; };
