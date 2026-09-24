@@ -276,6 +276,15 @@ class PipelineRunner:
             )
             record.artworks.append(candidate)
             best = pick_best_artwork(record.artworks)
+            # 确定性指标也记进档案（只在有值时写）—— 没有它们，事后无法回答"当时到底填没填实"。
+            # 型号直出（没有画布）时没有轮廓指标，所以不能无条件塞进去（checks 的值类型是 float）。
+            deterministic: dict[str, float] = {}
+            thick = result.style_metrics.get("thick_ink_share")
+            if thick is not None:
+                deterministic["thick_ink_share"] = float(thick)
+            iou = (result.silhouette or {}).get("iou_frame")
+            if iou is not None:
+                deterministic["silhouette_iou"] = float(iou)
             record.quality = QualityInfo(
                 score=result.score,
                 attempts=record.attempts.used_in_round,
@@ -288,6 +297,7 @@ class PipelineRunner:
                     "logo_filled": result.report.logo_filled,
                     "laces_solid_ratio": result.report.laces_solid_ratio,
                     "text_legible": result.report.text_legible,
+                    **deterministic,
                 },
                 issues=result.issues,
                 verdict=result.report.verdict or ("pass" if result.passed else "fail"),
@@ -331,6 +341,7 @@ class PipelineRunner:
                 "retry_planned",
                 attempt=attempt,
                 underfilled=result.underfilled,
+                overfilled=result.overfilled,
                 silhouette_bad=result.silhouette_bad,
                 emphasis=emphasis or "",
             )

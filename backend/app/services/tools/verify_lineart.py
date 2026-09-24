@@ -35,13 +35,18 @@ class VerifyResult:
     silhouette: dict = field(default_factory=dict)
     #: 失败原因分类 —— 定向重画据此决定下次要强调什么（不是把同一套提示词重跑一遍）
     underfilled: bool = False
+    overfilled: bool = False
     silhouette_bad: bool = False
 
     @property
     def retry_emphasis(self) -> str | None:
         """下一次重画要强调的方向；None 表示没有明确的确定性原因。"""
+        # 太黑优先于太轻（两者不会同时发生），两者都优先于轮廓：
+        # 先把墨量拉回区间，再说轮廓的事
         if self.underfilled:
             return "underfilled"
+        if self.overfilled:
+            return "overfilled"
         if self.silhouette_bad:
             return "silhouette"
         return None
@@ -185,6 +190,7 @@ def verify_lineart(
         )
 
     underfilled = any("低于硬下限" in item for item in blocking)
+    overfilled = any("超出硬上限" in item for item in blocking)
 
     artwork_check = {
         **artwork_check,
@@ -219,5 +225,6 @@ def verify_lineart(
         style_blocked=bool(blocking),
         silhouette=silhouette,
         underfilled=underfilled,
+        overfilled=overfilled,
         silhouette_bad=silhouette_bad,
     )

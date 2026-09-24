@@ -56,13 +56,30 @@ def test_vision_description_wins_over_knowledge_table() -> None:
     assert plan.source == "vision"
 
 
-def test_partial_visibility_asks_not_to_complete_the_mark() -> None:
-    """Melo 5.5：照片里飞人只露一部分，模型却把它补成了一个完整的飞人。"""
+def test_partial_visibility_never_names_the_mark() -> None:
+    """Melo 5.5：照片里那个标只露一半，**刻意不给形状名**。
+
+    实测踩过的坑：体检把它认成“耐克勾形”，我们照说“把耐克勾形填实”，
+    模型就画了一个完整的黑色勾 —— 判官判“凭空替换品牌标识”。
+    只露一部分时，说出名字反而会诱使它画错形状或补全，所以只描述“可见的那一小块”。
+    """
     plan = resolve_fill_plan(
         brand="Jordan", logo_type="飞人", logo_position="后跟侧面", logo_visibility="partial"
     )
     assert plan.must_fill is True
     assert plan.partial is True
+    assert plan.logo_hint == "", "只露一部分时不能给出品牌形状名"
+    assert plan.source == "partial"
+
+
+def test_partial_logo_gets_a_dedicated_prompt_block() -> None:
+    """提示词里要有专门的一段，且不能出现品牌标准形状的名字。"""
+    from app.services.providers.ark_image import _draw_hints_suffix
+
+    suffix = _draw_hints_suffix(None, None, partial_logo=True)
+    assert "只画看得见的那一小块标识" in suffix
+    assert "不要按任何品牌的标准形状把它补全" in suffix
+    assert "填实" in suffix, "只露一部分也要填，只是不按标准形状补全"
 
 
 def test_invisible_mark_forbids_inventing_one() -> None:

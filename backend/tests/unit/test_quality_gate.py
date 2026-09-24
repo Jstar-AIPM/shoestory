@@ -296,6 +296,7 @@ def test_retry_emphasis_maps_reason_to_direction() -> None:
     )
     assert VerifyResult(report=report, **base).retry_emphasis is None
     assert VerifyResult(report=report, **base, underfilled=True).retry_emphasis == "underfilled"
+    assert VerifyResult(report=report, **base, overfilled=True).retry_emphasis == "overfilled"
     assert VerifyResult(report=report, **base, silhouette_bad=True).retry_emphasis == "silhouette"
     # 太轻优先于轮廓（先补上实色块，轮廓下次再说）
     assert (
@@ -309,3 +310,18 @@ def test_style_template_has_silhouette_floor() -> None:
     style = default_style()
     floor = style.quality_gate.silhouette_floor
     assert 0 < floor <= 0.85, f"轮廓下限 {floor} 不在合理范围"
+
+
+def test_ink_ratio_ceiling_is_a_hard_gate() -> None:
+    """墨量上限必须是**真闸门**，不能只当"观察区间"。
+
+    2026-09-24 调完填色规则后 Melo 5.5 从"纯线描"变成"大片涂黑"（墨量 0.1153）——
+    反向过头了，而它当时只被当成观察区间偏离，既不阻塞也不触发重画。
+    """
+    style = default_style()
+    ceilings = style.quality_gate.style_hard_max
+    assert "ink_ratio" in ceilings, "风格模板里必须有墨量上限"
+
+    blocked = style_blocking_issues({"ink_ratio": 0.20}, {}, hard_max=ceilings)
+    assert blocked and "超出硬上限" in blocked[0]
+    assert style_blocking_issues({"ink_ratio": 0.05}, {}, hard_max=ceilings) == []

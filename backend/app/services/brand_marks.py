@@ -134,12 +134,14 @@ def resolve_fill_plan(
 
     1. **可见程度 = none** → 禁止编造。这是 AJ36 那次的坑：照片角度看不到，硬要求填
        就会让模型凭空画一个。此时不论品牌知不知道，都不要求填。
-    2. **可见程度 = full / partial** → 要填。**形状描述以视觉模型为准，知识表只做兜底**。
+    2. **可见程度 = partial** → 要求填，但**不给形状名**。只露一部分的标识说不得名字：
+       实测 Melo 5.5 的后跟橙色小标被认成"耐克勾形"，我们照说，模型就画了个完整的黑勾。
+    3. **可见程度 = full** → 要填。**形状描述以视觉模型为准，知识表只做兜底**。
        为什么不让知识表优先（实测踩过）：AJ36 那个角度看到的是后跟的 ∞，而知识表写的是
        "Jordan → 飞人" —— 照表走就会让模型画一个照片里不存在的飞人，恰好是我们要修的 bug。
        知识表的价值在于**模型说不出形状的时候**（黑鞋配黑标、白鞋配白标这类同色系，
        模型常不把那个图形当成"标记"），此时由它补上准确的名称。
-    3. 可见程度缺失（老任务记录）→ 退回原来的启发式：有 logo_type 就要求填，
+    4. 可见程度缺失（老任务记录）→ 退回原来的启发式：有 logo_type 就要求填，
        否则禁止编造（但不再因为 `fill_required=False` 就禁止 —— 那是 Stan Smith 的坑）。
     """
     visibility = _normalize(logo_visibility)
@@ -151,6 +153,13 @@ def resolve_fill_plan(
         return FillPlan(forbid_logo=True, source="vision")
 
     if visibility in (VISIBILITY_FULL, VISIBILITY_PARTIAL):
+        if visibility == VISIBILITY_PARTIAL:
+            # 只露一部分的标识：**刻意不给出品牌形状名**。
+            # 实测（2026-09-24 Melo 5.5）：那张图后跟是个只露半边的橙色小标，
+            # 体检把它认成了"耐克勾形"，我们于是告诉模型"把耐克勾形填实"——
+            # 结果它照画了一个黑色的完整勾，判官判"凭空替换品牌标识"。
+            # 所以这种情形只说"把看得见的那一小块填实、不要按标准形状补全"。
+            return FillPlan(must_fill=True, partial=True, source="partial")
         if vision_hint:
             hint, place, source = vision_hint, position, "vision"
         elif mark is not None:
@@ -162,7 +171,6 @@ def resolve_fill_plan(
         return FillPlan(
             logo_hint=f"{hint}（{place}）" if place else hint,
             must_fill=True,
-            partial=visibility == VISIBILITY_PARTIAL,
             source=source,
         )
 

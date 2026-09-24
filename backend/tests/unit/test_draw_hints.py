@@ -81,10 +81,10 @@ def test_same_color_mark_must_still_be_filled() -> None:
 
 
 def test_partial_logo_is_not_completed() -> None:
-    """Melo 5.5：照片里飞人只露一部分，模型却补成了一个完整的飞人。"""
-    suffix = _draw_hints_suffix("飞人（后跟侧面）", None, partial_logo=True)
-    assert "只画看得见的那部分" in suffix
-    assert "不要把它补全" in suffix
+    """Melo 5.5：标只露一部分时，不能给形状名、也不能补全（详见 brand_marks 的测试）。"""
+    suffix = _draw_hints_suffix(None, None, partial_logo=True)
+    assert "只画看得见的那一小块标识" in suffix
+    assert "不要按任何品牌的标准形状把它补全" in suffix
 
 
 def test_partial_hint_absent_for_fully_visible_logo() -> None:
