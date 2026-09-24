@@ -29,6 +29,28 @@ HATCH_MAX_AREA = 900
 HATCH_MAX_WIDTH = 2.6
 HATCH_MIN_ASPECT = 3.0
 
+# 「实心块」判定（2026-09-24 新增，第一版做错了，这里记下为什么）
+#
+# 需求：区分「有实色块」和「纯线描」。
+# 第一版去数「连通域的填充率 = 面积/外接矩形」，实测**全 0** —— 因为填实的 Logo
+# 往往和轮廓线连在一起，早就被并进那个几万像素的“主线网”里了，根本不成独立连通域。
+#
+# 换成形态学开运算：用半径 8px 的圆去腐蚀+膨胀（= 抹掉任何宽度不到 16px 的笔画）。
+# 风格模板里外轮廓是 12–14px、结构线更细，所以**开运算之后剩下的只能是真色块**。
+# 实测（2026-09-24 基线）：纯线描的 AJ36 = 0.00000、Stan Smith = 0.00122、
+# Melo 5.5 = 0.00055；而有实色块的 PG1 = 0.01696、Nike 2024 = 0.02808。
+THICK_INK_RADIUS = 8
+
+def _thick_ink(ink: np.ndarray) -> tuple[float, float]:
+    """返回 (实色块占比, 最粗墨迹宽度px)。"""
+    total = float(ink.size) or 1.0
+    kernel = cv2.getStructuringElement(
+        cv2.MORPH_ELLIPSE, (2 * THICK_INK_RADIUS + 1, 2 * THICK_INK_RADIUS + 1)
+    )
+    opened = cv2.morphologyEx(ink, cv2.MORPH_OPEN, kernel)
+    dist = cv2.distanceTransform(ink, cv2.DIST_L2, 5)
+    return float(opened.sum()) / total, float(dist.max()) * 2.0
+
 
 def measure_style(image_bytes: bytes) -> dict:
     """返回风格度量字典（纯确定性计算）。"""
@@ -46,6 +68,8 @@ def measure_style(image_bytes: bytes) -> dict:
             "filled_block_share": 0.0,
             "mean_stroke_px": 0.0,
             "solid_black_share": 0.0,
+            "thick_ink_share": 0.0,
+            "max_stroke_px": 0.0,
             "dot_count": 0,
             "hatch_suspect": 0,
             "components": 0,
@@ -90,11 +114,15 @@ def measure_style(image_bytes: bytes) -> dict:
     else:  # pragma: no cover
         filled_block_share = 0.0
 
+    thick_ink_share, max_stroke_px = _thick_ink(ink)
+
     return {
         "ink_ratio": round(ink_ratio, 4),
         "filled_block_share": round(filled_block_share, 4),
         "mean_stroke_px": round(mean_stroke, 2),
         "solid_black_share": round(solid_area / total, 4),
+        "thick_ink_share": round(thick_ink_share, 5),
+        "max_stroke_px": round(max_stroke_px, 1),
         "dot_count": dot_count,
         "hatch_suspect": hatch_suspect,
         "components": int(num - 1),
