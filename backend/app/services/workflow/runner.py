@@ -185,14 +185,18 @@ class PipelineRunner:
             if self.asset_store.exists(cutout_key):
                 # 抠图掩膜是"原鞋轮廓"的精确来源（白鞋配白底时，画布上的非白像素靠不住）
                 cutout_png = self.asset_store.get(cutout_key)
-            if self.settings.enable_structure_reference:
+            # 骨架参考图只有"需要它的风格"才喂（黑白线稿要、水彩不要，见 style.loader）
+            if self.settings.enable_structure_reference and style.needs_structure_reference:
                 structure_key = self.asset_store.task_key(owner_id, task_id, EDGE_FILENAME)
                 if self.asset_store.exists(structure_key):
                     structure_png = self.asset_store.get(structure_key)
 
         # 「填什么、要不要填、能不能编」由代码决定（品牌知识表 + 可见程度），不问模型心情。
         # 2026-09-24 产品反馈：同色系的鞋（浅棕 AF1、黑鞋配黑标）模型按颜色对比判断，永远不填。
-        plan = self._fill_plan(record)
+        #
+        # ⚠️ 但"填成**纯黑**实心"是**黑白风格专属**的规则：彩色风格（水彩）要的是
+        # "按原鞋配色还原标识"，把"必须填黑"注入进去会直接跑偏。所以按风格开关。
+        plan = self._fill_plan(record) if style.binarize else FillPlan()
         trace.write(
             "fill_plan",
             hint=plan.logo_hint,
@@ -230,6 +234,7 @@ class PipelineRunner:
                 self._set_state(record, S.REFINING, "refine_start", {"attempt": attempt}, recorder)
                 final, refine_meta = refine_lineart(
                     raw,
+                    style=style,  # 二值化与否由风格决定（黑白稿要、水彩不要）
                     target_width=self.settings.artwork_width,
                     target_height=self.settings.artwork_height,
                 )
@@ -249,8 +254,9 @@ class PipelineRunner:
                     canvas_png=canvas_png,
                 )
 
-                # 文字兜底贴合（决策记录九.⑧）：文字可辨度过低时，把原图裁出的文字贴到线稿
-                if result.report.text_legible < self.settings.text_fallback_threshold:
+                # 文字兜底贴合（决策记录九.⑧）：文字可辨度过低时，把原图裁出的文字贴到线稿。
+                # ⚠️ 只对二值风格生效：这个兜底是"二值化后贴黑字"，贴到彩色画稿上会毁掉颜色。
+                if style.binarize and result.report.text_legible < self.settings.text_fallback_threshold:
                     stamps = self._load_text_stamps(owner_id, task_id, record.text_stamps)
                     if stamps:
                         final = composite_text_stamps(final, stamps)

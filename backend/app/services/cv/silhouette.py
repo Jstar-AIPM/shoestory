@@ -121,8 +121,40 @@ def subject_mask_on_canvas(
     return canvas
 
 
-def artwork_silhouette(artwork_png: bytes) -> np.ndarray:
-    """画稿的外形：取墨迹的外轮廓并整块填充。"""
+def artwork_silhouette(artwork_png: bytes, *, from_background: bool = False, tolerance: int = 26) -> np.ndarray:
+    """画稿的外形。
+
+    两种取法，按风格选：
+
+    - ``from_background=False``（黑白线稿）：取墨迹（灰度 < 128）的外轮廓并整块填充。
+    - ``from_background=True``（**彩色画稿**）：取"与纸色不同"的区域。
+
+    ⚠️ 为什么彩色必须换一种取法（2026-09-24 实测）：水彩画稿里**没有黑墨**，
+    拿“灰度 < 128”去找，得到的是零碎几块 —— 轮廓重合度直接掉到 0.03–0.67，
+    于是每张水彩都被误判“轮廓塔陷”并白白重画一次。
+    """
+    if from_background:
+        rgb = np.array(to_rgb_on_white(artwork_png).convert("RGB"))
+        border = np.concatenate(
+            [
+                rgb[0:3, :, :].reshape(-1, 3),
+                rgb[-3:, :, :].reshape(-1, 3),
+                rgb[:, 0:3, :].reshape(-1, 3),
+                rgb[:, -3:, :].reshape(-1, 3),
+            ]
+        )
+        paper = np.median(border, axis=0)
+        distance = np.linalg.norm(rgb.astype(np.float32) - paper.astype(np.float32), axis=2)
+        mask = (distance > tolerance).astype(np.uint8) * 255
+        kernel = np.ones((3, 3), np.uint8)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
+        mask = _largest_component(mask > 0).astype(np.uint8) * 255
+        # 填洞：水彩内部可能有与纸色接近的浅色区域，不填会被当成背景
+        flood = mask.copy()
+        canvas = np.zeros((mask.shape[0] + 2, mask.shape[1] + 2), np.uint8)
+        cv2.floodFill(flood, canvas, (0, 0), 255)
+        return (mask | cv2.bitwise_not(flood)) > 0
+
     gray = np.array(to_rgb_on_white(artwork_png).convert("L"))
     ink = (gray < 128).astype(np.uint8) * 255
     contours, _ = cv2.findContours(ink, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -230,8 +262,13 @@ def compare_silhouette(
     canvas_size: tuple[int, int] = (CANVAS_W, CANVAS_H),
     canvas_padding: float = SUBJECT_PAD,
     artwork_padding: float = ARTWORK_PAD,
+    from_background: bool = False,
 ) -> dict:
-    """便捷入口：直接喂三个文件（cutout 可以为 None，会自动退回画布估掩膜）。"""
+    """便捷入口：直接喂三个文件（cutout 可以为 None，会自动退回画布估掩膜）。
+
+    ``from_background=True`` 用于彩色风格（水彩）—— 它的画稿里没有黑墨，
+    必须用“与纸色不同”取主体，否则指标完全失效（详见 `artwork_silhouette`）。
+    """
     subject = (
         subject_mask_on_canvas(
             cutout_png, width=canvas_size[0], height=canvas_size[1], padding_ratio=canvas_padding
@@ -243,7 +280,7 @@ def compare_silhouette(
         subject = subject_mask_from_canvas(canvas_png)
     metrics = silhouette_metrics(
         subject,
-        artwork_silhouette(artwork_png),
+        artwork_silhouette(artwork_png, from_background=from_background),
         bands=bands,
         subject_pad=canvas_padding,
         artwork_pad=artwork_padding,

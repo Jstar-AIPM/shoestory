@@ -155,7 +155,15 @@ def verify_lineart(
     cutout_png: bytes | None = None,
     canvas_png: bytes | None = None,
 ) -> VerifyResult:
-    artwork_check = check_artwork(artwork_png, settings.artwork_width, settings.artwork_height)
+    # 画布检查按风格切换：黑白稿要求纯二值 + 白底；彩色风格只要求比例正确 + 背景留白够
+    artwork_check = check_artwork(
+        artwork_png,
+        settings.artwork_width,
+        settings.artwork_height,
+        require_binary=style.binarize,
+        min_background_ratio=style.background_ratio_floor,
+        background_label="white" if style.binarize else "paper",
+    )
     style_metrics = measure_style(artwork_png)
     targets = {
         key: (float(values[0]), float(values[1]))
@@ -175,7 +183,11 @@ def verify_lineart(
     silhouette: dict = {}
     if canvas_png is not None:
         silhouette = compare_silhouette(
-            cutout_png=cutout_png, canvas_png=canvas_png, artwork_png=artwork_png
+            cutout_png=cutout_png,
+            canvas_png=canvas_png,
+            artwork_png=artwork_png,
+            # 彩色风格不能靠"找黑墨"取主体（水彩里没有黑墨），按风格切换
+            from_background=not style.binarize,
         )
     silhouette_floor = float(style.quality_gate.silhouette_floor or 0.0)
     silhouette_bad = bool(

@@ -71,7 +71,14 @@ def _inspect_hints(providers, recorder: CallRecorder, image_bytes: bytes) -> Ins
     )
 
 
-def regenerate(source_png: Path, *, data_dir: Path, out_dir: Path, owner_id: str = "eval") -> dict:
+def regenerate(
+    source_png: Path,
+    *,
+    data_dir: Path,
+    out_dir: Path,
+    style_id: str = "",
+    owner_id: str = "eval",
+) -> dict:
     """用当前规则把一张源图重画一遍。返回结果（画稿路径、质检、体检结论）。
 
     `data_dir` 用临时目录 —— 评测不该污染本地开发数据；画稿会另存一份到 `out_dir`。
@@ -96,7 +103,7 @@ def regenerate(source_png: Path, *, data_dir: Path, out_dir: Path, owner_id: str
         state=TaskState.PREPROCESSING,
         created_at=now_iso(),
         updated_at=now_iso(),
-        style_id=settings.style_id,
+        style_id=style_id or settings.style_id,
         query=hints.name_for_archive or "评测",
         inspect=hints,
         trace_id=new_trace_id(),
@@ -191,6 +198,7 @@ def main() -> int:
     parser.add_argument("--dataset", required=True)
     parser.add_argument("--out", required=True)
     parser.add_argument("--only", default="", help="只跑这些序号（对应数据集里的编号），逗号分隔")
+    parser.add_argument("--style", default="", help="风格 id（默认用 .env 的 STYLE_ID，例如 watercolor）")
     args = parser.parse_args()
 
     dataset = Path(args.dataset).expanduser().resolve()
@@ -200,7 +208,7 @@ def main() -> int:
 
     manifest = json.loads((dataset / "manifest.json").read_text(encoding="utf-8"))
     items = [i for i in manifest["items"] if not wanted or i["index"] in wanted]
-    print(f"要重画 {len(items)} 张；每张最多 2 次生成（第 1 次不过会按原因重画）\n")
+    print(f"要重画 {len(items)} 张；风格 = {args.style or "(默认)"}\n")
 
     results: list[dict] = []
     tmp_root = Path(tempfile.mkdtemp(prefix="shoe-eval-"))
@@ -213,6 +221,7 @@ def main() -> int:
                 folder / "source_0.png",
                 data_dir=tmp_root / item["folder"],
                 out_dir=out / "artworks",
+                style_id=args.style,
             )
             result.update(
                 index=item["index"],

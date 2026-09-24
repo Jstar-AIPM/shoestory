@@ -22,9 +22,11 @@ def test_health_reports_missing_key_honestly(client: TestClient) -> None:
 
 
 def test_styles_endpoint(client: TestClient) -> None:
-    styles = client.get("/api/v1/styles").json()
-    assert [s["style_id"] for s in styles] == ["bw_lineart"]
-    assert styles[0]["canvas"]["aspect_ratio"] == "3:2"
+    """风格列表。2026-09-24 起不止一种（新增水彩，实验阶段），所以按"包含"断言。"""
+    styles = {s["style_id"]: s for s in client.get("/api/v1/styles").json()}
+    assert "bw_lineart" in styles, "黑白线稿是线上正在用的风格，不能被删"
+    assert styles["bw_lineart"]["canvas"]["aspect_ratio"] == "3:2"
+    assert all(s["canvas"]["aspect_ratio"] == "3:2" for s in styles.values())
 
 
 def test_full_chain_archive_and_read_back(client: TestClient) -> None:
@@ -200,7 +202,8 @@ def test_artwork_attempt_not_found(client: TestClient) -> None:
 
 
 def test_unknown_style_rejected(client: TestClient) -> None:
-    response = client.post("/api/v1/tasks", json={"query": "kd12", "style_id": "watercolor"})
+    # 注意：别拿 watercolor 当"不存在的风格" —— 它 2026-09-24 起真的存在了
+    response = client.post("/api/v1/tasks", json={"query": "kd12", "style_id": "no_such_style"})
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "STYLE_NOT_FOUND"
 

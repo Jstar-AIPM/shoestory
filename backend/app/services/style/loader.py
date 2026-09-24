@@ -88,6 +88,36 @@ class StyleTemplate(BaseModel):
     postprocess: dict = Field(default_factory=dict)
     quality_gate: QualityGate
 
+    @property
+    def needs_structure_reference(self) -> bool:
+        """要不要把"白底黑线的骨架图"当第二张参考图喂给生图模型。
+
+        黑白线稿风格要（等效 ControlNet 边缘引导，锁住结构）；
+        **彩色风格（水彩）不要** —— 那张骨架就是一套黑线，喂进去模型会照着勾线，
+        而水彩的要求恰恰是"不要用粗黑勾线定义整双鞋、不要形成线稿+上色的观感"。
+        """
+        return str(self.constraints.get("structure_control", "controlnet_edge")) != "none"
+
+    @property
+    def binarize(self) -> bool:
+        """后处理是否二值化。黑白线稿风格为 True；彩色风格（水彩）必须为 False。
+
+        放在风格模板里而不是代码里：二值化是**风格的要求**，不是管线的固有步骤
+        （同一套后处理要服务两种风格，见 tools/refine_lineart.py）。
+        """
+        return bool(self.postprocess.get("binarize", True))
+
+    @property
+    def canvas_background(self) -> str:
+        """画稿补边用的底色：黑白稿是纯白，水彩是暖白纸色。"""
+        default = "#ffffff" if self.binarize else "#faf6f0"
+        return str(self.postprocess.get("canvas_background") or default)
+
+    @property
+    def background_ratio_floor(self) -> float:
+        """背景留白下限。黑白稿要求 0.60（白底为主）；水彩靠纸色留白，0.45 就够。"""
+        return float(self.postprocess.get("min_background_ratio", 0.60 if self.binarize else 0.45))
+
     def style_rules_text(self) -> str:
         """注入质检 Prompt 的“风格规则”文本。"""
         return (
