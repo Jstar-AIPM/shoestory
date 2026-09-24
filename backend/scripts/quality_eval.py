@@ -39,6 +39,7 @@ sys.path.insert(0, str(BACKEND_DIR))
 
 from PIL import Image, ImageDraw, ImageFont  # noqa: E402
 
+from app.services.cv.segment import segment_shoe  # noqa: E402
 from app.services.cv.silhouette import compare_silhouette  # noqa: E402
 from app.services.cv.style import measure_style  # noqa: E402
 
@@ -64,9 +65,18 @@ def _artifact_metrics(item_dir: Path, artwork: Path) -> dict:
     row: dict = {f"style_{k}": v for k, v in measure_style(art_bytes).items()}
     canvas = item_dir / "canvas_3x2.png"
     cutout = item_dir / "cutout.png"
+    source = item_dir / "source_0.png"
     if canvas.exists():
+        # 掩膜用**当前**的抠图重算，而不是读数据集中那份旧的 cutout.png ——
+        # 否则改了抠图规则，指标还是拿旧掩膜在算，等于白改。
+        if source.exists():
+            cutout_png, _ = segment_shoe(source.read_bytes())
+        elif cutout.exists():
+            cutout_png = cutout.read_bytes()
+        else:
+            cutout_png = None
         sil = compare_silhouette(
-            cutout_png=cutout.read_bytes() if cutout.exists() else None,
+            cutout_png=cutout_png,
             canvas_png=canvas.read_bytes(),
             artwork_png=art_bytes,
         )

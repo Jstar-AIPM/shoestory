@@ -342,6 +342,8 @@ class TaskOut(BaseModel):
     selected_index: int | None = None
     artworks: list[ArtworkOut] = Field(default_factory=list)
     current_artwork_url: str | None = None
+    #: 当前展示的是第几次生成 —— 前端据此把其余几次当历史稿列出来
+    current_attempt: int | None = None
     #: CV 草稿（边缘骨架图）地址；AI 生成中用它做「扫过式揭示」动效。型号直出时为 None。
     draft_url: str | None = None
     quality: dict[str, Any] = Field(default_factory=dict)

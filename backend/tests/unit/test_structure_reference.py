@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import io
 
+import numpy as np
 import httpx
 import pytest
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from app.core.config import STYLES_DIR, Settings
 from app.services.cv.edges import extract_edge_map
@@ -17,8 +18,6 @@ from app.services.style.registry import StyleRegistry
 def canvas_bytes(width: int = 1536, height: int = 1024) -> bytes:
     """造一张“有主体轮廓”的画布图（白底 + 深色鞋形块）。"""
     img = Image.new("RGB", (width, height), (255, 255, 255))
-    from PIL import ImageDraw
-
     draw = ImageDraw.Draw(img)
     draw.polygon(
         [
@@ -119,6 +118,35 @@ def test_without_structure_reference_only_photo_is_sent(generator: ArkLineartGen
     payload = _Capture.last
     assert isinstance(payload["image"], str)  # 单图 = 字符串
     assert "骨架" not in payload["prompt"]
+
+
+def test_contour_is_drawn_from_cutout_when_canvas_has_no_edges() -> None:
+    """**白鞋配白底**这个致命场景：Canny 完全抓不到边界，必须由抠图掩膜补上外轮廓。
+
+    线上就是这么坏的 —— PG4 白鞋配白底，骨架图里鞋头那段轮廓根本不存在（Canny 阈值
+    对浅灰鞋面毫无反应），模型拿着一张“没有前掌边界”的骨架只能自己编，于是画成楝形。
+    这个测试里画布是纯白的（Canny 零输出），所以骨架图上只要有线，就只能是掩膜贡献的。
+    """
+    blank_canvas = io.BytesIO()
+    Image.new("RGB", (1536, 1024), (255, 255, 255)).save(blank_canvas, format="PNG")
+
+    # 抠图结果：白色主体 + alpha 掩膜（真实场景里 alpha 就是那只鞋的边界）
+    cutout = Image.new("RGBA", (600, 400), (255, 255, 255, 0))
+    mask = Image.new("L", (600, 400), 0)
+    ImageDraw.Draw(mask).ellipse([60, 80, 540, 330], fill=255)
+    cutout.putalpha(mask)
+    cutout_buffer = io.BytesIO()
+    cutout.save(cutout_buffer, format="PNG")
+
+    without, _ = extract_edge_map(blank_canvas.getvalue())
+    ink_without = int((np.array(Image.open(io.BytesIO(without)).convert("L")) == 0).sum())
+    assert ink_without == 0, "纯白画布本应抽不出任何线条"
+
+    edges, meta = extract_edge_map(blank_canvas.getvalue(), cutout_png=cutout_buffer.getvalue())
+    ink = int((np.array(Image.open(io.BytesIO(edges)).convert("L")) == 0).sum())
+    assert meta["contour_drawn"] is True
+    assert ink > 0, "必须把抠图掩膜的外轮廓画进骨架图"
+    assert meta["mask_ratio"] > 0.02
 
 
 def test_style_prompt_bans_hatching() -> None:

@@ -37,6 +37,7 @@ from app.services.tools.normalize_view import normalize_view
 from app.services.tools.prepare_source import MODE_REASON, prepare_source_candidates
 from app.services.tools.refine_lineart import refine_lineart
 from app.services.tools.segment_shoe import segment_shoe
+from app.services.tools.select_artwork import pick_best_artwork
 from app.services.tools.verify_lineart import verify_lineart
 from app.services.workflow import hooks
 from app.services.workflow.journal import TraceWriter
@@ -254,7 +255,7 @@ class PipelineRunner:
                 created_at=now_iso(),
             )
             record.artworks.append(candidate)
-            best = max(record.artworks, key=lambda item: (item.score or 0.0))
+            best = pick_best_artwork(record.artworks)
             record.quality = QualityInfo(
                 score=result.score,
                 attempts=record.attempts.used_in_round,
@@ -425,7 +426,10 @@ class PipelineRunner:
         structure_key: str | None = None
         if self.settings.enable_structure_reference:
             edge_png, edge_meta = extract_edge_map(
-                canvas, max_edge=self.settings.ark_max_image_edge
+                canvas,
+                cutout_png=cutout,
+                padding_ratio=style.canvas.padding_ratio,
+                max_edge=self.settings.ark_max_image_edge,
             )
             structure_key = self.asset_store.put_task_file(
                 record.owner_id, record.task_id, EDGE_FILENAME, edge_png
@@ -533,7 +537,7 @@ class PipelineRunner:
             record.upstream_calls = recorder.total_calls
             record.est_cost_cny = recorder.total_cost
         if record.artworks:
-            best = max(record.artworks, key=lambda item: (item.score or 0.0))
+            best = pick_best_artwork(record.artworks)
             record.quality.best_attempt = best.attempt
         if record.state not in TERMINAL_STATES:
             try:

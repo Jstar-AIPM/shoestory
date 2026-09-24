@@ -49,6 +49,7 @@ from app.services.tools.search_shoe_image import (
     fetch_candidate_preview,
     fetch_source_image,
 )
+from app.services.tools.select_artwork import pick_best_artwork
 from app.services.workflow import hooks
 from app.services.auth.quota import consume_generation
 from app.services.workflow.journal import TraceWriter
@@ -97,7 +98,8 @@ def to_task_out(record: TaskRecord) -> TaskOut:
         )
         for item in record.artworks
     ]
-    current = record.artworks[-1] if record.artworks else None
+    #: 当前展示/待归档的那一张 = 最优稿（先看是否通过质检，再看分数）
+    current = pick_best_artwork(record.artworks)
     return TaskOut(
         task_id=record.task_id,
         state=record.state,
@@ -117,6 +119,7 @@ def to_task_out(record: TaskRecord) -> TaskOut:
         selected_index=record.source.selected_index,
         artworks=artworks,
         current_artwork_url=_artwork_url(record.task_id, current.attempt) if current else None,
+        current_attempt=current.attempt if current else None,
         # 走过预处理（有画布）才有 CV 草稿；型号直出没有
         draft_url=_draft_url(record.task_id) if record.source.source_path else None,
         quality=record.quality.model_dump(),
@@ -491,7 +494,10 @@ def archive_task(
         if item is None:
             raise AppError(ErrorCode.ARTWORK_NOT_FOUND, detail={"attempt": payload.attempt})
     else:
-        item = max(record.artworks, key=lambda a: (a.score or 0.0))
+        # 不指定就用最优稿：**先看有没有通过质检，再看分数**。
+        # 不能只比分数 —— 同分时 max 会留下先出现的那张（实测 AF1 因此归档了"勾没填"、
+        # 且质检明确判过未通过的第 1 张）。见 services/tools/select_artwork.py。
+        item = pick_best_artwork(record.artworks)
 
     artwork_png = container.asset_store.get(item.path)
     # 上传图（V2）用体检识别的「品牌 + 型号」当默认标题；型号输入路径仍用校对结果

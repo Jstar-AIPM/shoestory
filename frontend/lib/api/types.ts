@@ -139,6 +139,8 @@ export type TaskOut = {
   selected_index: number | null;
   artworks: Artwork[];
   current_artwork_url: string | null;
+  /** 当前展示的是第几次生成；其余几次作为历史稿列出 */
+  current_attempt: number | null;
   /** CV 草稿（边缘骨架图）地址；AI 生成中做动效用，型号直出为 null */
   draft_url: string | null;
   quality: Quality;

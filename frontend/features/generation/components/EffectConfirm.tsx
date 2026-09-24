@@ -28,7 +28,12 @@ export function EffectConfirm({
   const quality = task.quality;
   const passed = quality.verdict === "pass" || (quality.score ?? 0) >= 0.8;
   const artworkSrc = task.current_artwork_url ?? "";
-  const history = task.artworks.slice(0, -1).reverse();
+  // 历史稿 = 除“当前展示的那一张”之外的其他尝试。
+  // 不能简单用 slice(0, -1)：最优稿不一定是最后一次（先看是否通过质检，再看分数）。
+  const history = task.artworks
+    .filter((item) => item.attempt !== task.current_attempt)
+    .slice()
+    .reverse();
 
   return (
     <div className="space-y-5">
