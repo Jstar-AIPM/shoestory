@@ -121,16 +121,27 @@ class InspectHints(BaseModel):
     colorway: str = Field(default="", max_length=40)
     logo_type: str = Field(default="", max_length=60)
     logo_position: str = Field(default="", max_length=60)
+    #: full / partial / none —— 这张照片里形状看不看得见（与颜色对比无关）。
+    #: 空串表示老记录没有这个字段，此时退回原来的启发式（见 services/brand_marks.py）
+    logo_visibility: str = Field(default="", max_length=10)
     logo_fill_required: bool = True
     texts: list[str] = Field(default_factory=list, max_length=8)
     #: 带定位信息的文字（box 相对体检裁切图）—— 文字兜底贴合用
     text_stamps: list[TextStamp] = Field(default_factory=list, max_length=8)
     shoe_count: int = Field(default=1, ge=0, le=50)
 
-    @field_validator("display_name", "brand", "model_name", "colorway", "logo_type", "logo_position", mode="before")
+    @field_validator(
+        "display_name", "brand", "model_name", "colorway", "logo_type", "logo_position", mode="before"
+    )
     @classmethod
     def _clean_text(cls, value: Any) -> str:
         return "" if value is None else str(value).strip()
+
+    @field_validator("logo_visibility", mode="before")
+    @classmethod
+    def _clean_visibility(cls, value: Any) -> str:
+        text = "" if value is None else str(value).strip().lower()
+        return text if text in {"full", "partial", "none"} else ""
 
     @field_validator("texts", mode="before")
     @classmethod
@@ -145,15 +156,6 @@ class InspectHints(BaseModel):
             if len(seen) >= 8:
                 break
         return seen
-
-    @property
-    def logo_fill_hint(self) -> str:
-        """写进生图提示词的 Logo 填色描述（形状 + 位置）。"""
-        if not self.logo_type:
-            return ""
-        if self.logo_position:
-            return f"{self.logo_type}（{self.logo_position}）"
-        return self.logo_type
 
     @property
     def name_for_archive(self) -> str:

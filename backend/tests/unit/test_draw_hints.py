@@ -64,3 +64,44 @@ def test_logo_fill_says_only_draw_what_is_visible() -> None:
 def test_nothing_visible_and_no_flag_keeps_suffix_silent() -> None:
     """没给 Logo 信息、也没要求避免编造时，不要凭空加一段劝导（保持提示词稳定）。"""
     assert _draw_hints_suffix(None, None) == ""
+
+
+# --------------------------------------------------------------------------- 2026-09-24 新增
+
+
+def test_same_color_mark_must_still_be_filled() -> None:
+    """同色系的标也要填 —— 这是线上 AF1 浅棕 / 黑色 ASICS 出问题的地方。
+
+    模型是按"照片里的颜色对比"决定要不要填的，浅棕鞋配浅棕勾、黑鞋配黑标时它就不填。
+    所以提示词里必须把\"同色也要填\"说死。
+    """
+    suffix = _draw_hints_suffix("耐克勾形（鞋身外侧）", None)
+    assert "同色" in suffix
+    assert "照样填成纯黑实心" in suffix
+
+
+def test_partial_logo_is_not_completed() -> None:
+    """Melo 5.5：照片里飞人只露一部分，模型却补成了一个完整的飞人。"""
+    suffix = _draw_hints_suffix("飞人（后跟侧面）", None, partial_logo=True)
+    assert "只画看得见的那部分" in suffix
+    assert "不要把它补全" in suffix
+
+
+def test_partial_hint_absent_for_fully_visible_logo() -> None:
+    suffix = _draw_hints_suffix("飞人", None, partial_logo=False)
+    assert "不要把它补全" not in suffix
+
+
+def test_avoid_logo_wins_when_no_mark_visible() -> None:
+    """AJ36：那个角度看不到，就明确禁止编造。"""
+    suffix = _draw_hints_suffix(None, None, avoid_logo=True)
+    assert "不要编造 Logo" in suffix
+    assert "Logo 必须填实" not in suffix
+
+
+def test_emphasis_sentences_are_reason_specific() -> None:
+    """定向重画：不同失败原因补不同的话，不能一律重跑同一套提示词。"""
+    from app.services.providers.ark_image import EMPHASIS
+
+    assert "一块实色都没有" in EMPHASIS["underfilled"]
+    assert "外轮廓" in EMPHASIS["silhouette"]

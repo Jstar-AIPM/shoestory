@@ -302,9 +302,11 @@ class MockLineartGenerator:
         recorder: CallRecorder,
         structure_reference: bytes | None = None,  # mock 忽略结构骨架/型号，但接口保持一致
         model_name: str | None = None,
-        logo_fill: str | None = None,  # mock 忽略 Logo/文字提示，但接口保持一致
+        logo_fill: str | None = None,  # mock 忽略 Logo/文字/强调提示，但接口保持一致
         shoe_texts: list[str] | None = None,
         avoid_logo: bool = False,
+        partial_logo: bool = False,
+        emphasis: str | None = None,
     ) -> bytes:
         recorder.check("image")
         with timer() as box:

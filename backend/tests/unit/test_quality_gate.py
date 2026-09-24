@@ -247,3 +247,65 @@ def test_settings_defaults_match_confirmed_decisions() -> None:
     assert settings.gen_max_attempts == 2
     # 结构骨架（防自由创作）默认开启
     assert settings.enable_structure_reference is True
+
+
+# ---------------- 实色块下限 + 轮廓下限（2026-09-24 产品反馈：该填没填、轮廓没还原）----------------
+
+
+def test_style_floor_flags_a_too_light_drawing() -> None:
+    """纯线描必须被拦下 —— 而且**不能交给视觉模型判**。
+
+    实测：判官给一张勾没填的画稿打了 logo_filled = 1.0（它的提示词里有
+    "原图看不到标识就按 1.0"的宽容条款，被过度套用了），于是那张稿子直接过关、
+    不会触发重画。填色是可量化的事，由代码判。
+
+    下限 0.002 的依据（2026-09-24 基线）：纯线描的 AJ36 = 0.00000、
+    Melo 5.5 = 0.00055、Stan Smith = 0.00122；被认可的 Carmelo 1.5 = 0.00367。
+    """
+    style = default_style()
+    floor = style.quality_gate.style_floor
+    assert floor and "thick_ink_share" in floor, "风格模板里必须有实色块下限"
+
+    too_light = style_blocking_issues(
+        {"thick_ink_share": 0.0}, {}, floor=floor
+    )
+    assert too_light and "低于硬下限" in too_light[0]
+
+    fine = style_blocking_issues({"thick_ink_share": 0.02}, {}, floor=floor)
+    assert fine == []
+
+
+def test_style_floor_absent_means_no_check() -> None:
+    assert style_blocking_issues({"thick_ink_share": 0.0}, {}, floor={}) == []
+
+
+def test_retry_emphasis_maps_reason_to_direction() -> None:
+    """定向重画：不同失败原因给出不同的强化方向，不是把同一套提示词重跑一遍。"""
+    from app.schemas.llm import QualityReportOut
+    from app.services.tools.verify_lineart import VerifyResult
+
+    base = dict(artwork_check={}, score=0.5, passed=False)
+    report = QualityReportOut(
+        shoe_silhouette_match=0.9,
+        logo_legibility=0.9,
+        style_consistency=0.9,
+        noise_level=0.9,
+        logo_filled=1.0,
+        laces_solid_ratio=0.0,
+        text_legible=1.0,
+    )
+    assert VerifyResult(report=report, **base).retry_emphasis is None
+    assert VerifyResult(report=report, **base, underfilled=True).retry_emphasis == "underfilled"
+    assert VerifyResult(report=report, **base, silhouette_bad=True).retry_emphasis == "silhouette"
+    # 太轻优先于轮廓（先补上实色块，轮廓下次再说）
+    assert (
+        VerifyResult(report=report, **base, underfilled=True, silhouette_bad=True).retry_emphasis
+        == "underfilled"
+    )
+
+
+def test_style_template_has_silhouette_floor() -> None:
+    """轮廓下限必须配在风格模板里，并且是"能拦下真塌陷"的合理值。"""
+    style = default_style()
+    floor = style.quality_gate.silhouette_floor
+    assert 0 < floor <= 0.85, f"轮廓下限 {floor} 不在合理范围"

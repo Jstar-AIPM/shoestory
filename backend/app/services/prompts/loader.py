@@ -21,13 +21,16 @@ from app.core.logging import log_event
 
 logger = logging.getLogger("app.prompts")
 
-#: 运行时会被读取的 Prompt 文件（健康检查与打包自检据此判断代码包是否完整）
+#: 运行时必需资源（健康检查与打包自检据此判断代码包是否完整）。
+#: 不只有 Prompt —— `brand_marks.yaml`（品牌标志知识表）也是运行时读的，
+#: 少一份就少一层判断依据，同样必须能被健康检查看见。
 REQUIRED_PROMPTS: tuple[str, ...] = (
     "resolve_model.md",
     "verify_lineart.md",
     "rank_source_images.md",
     "screen_source_images.md",
     "inspect_photo.md",
+    "brand_marks.yaml",
 )
 
 #: 已被读取且当时缺失的 Prompt（用于健康检查如实上报）

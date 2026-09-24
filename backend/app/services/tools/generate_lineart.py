@@ -23,6 +23,8 @@ def generate_lineart(
     logo_fill: str | None = None,
     shoe_texts: list[str] | None = None,
     avoid_logo: bool = False,
+    partial_logo: bool = False,
+    emphasis: str | None = None,
 ) -> bytes:
     return generator.generate(
         canvas_png=canvas_bytes,
@@ -34,4 +36,6 @@ def generate_lineart(
         logo_fill=logo_fill,
         shoe_texts=shoe_texts,
         avoid_logo=avoid_logo,
+        partial_logo=partial_logo,
+        emphasis=emphasis,
     )

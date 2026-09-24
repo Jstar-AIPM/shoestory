@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from app.core.config import Settings
 from app.schemas.llm import QualityReportOut
 from app.services.cv.binarize import check_artwork
+from app.services.cv.silhouette import compare_silhouette
 from app.services.cv.style import compare_to_targets, measure_style
 from app.services.providers.base import CallRecorder, QualityJudge
 from app.services.style.loader import StyleTemplate
@@ -30,6 +31,20 @@ class VerifyResult:
     #: 风格偏离中**真正算不合格**的那部分（style_ok 可能因为"观察区间"偏离而为 False，
     #: 但那不代表不合格 —— 二者必须分开，否则会把合格产出误杀）
     style_blocked: bool = False
+    #: 轮廓重合度（cv/silhouette.py 的确定性结果），没有画布时为 {}
+    silhouette: dict = field(default_factory=dict)
+    #: 失败原因分类 —— 定向重画据此决定下次要强调什么（不是把同一套提示词重跑一遍）
+    underfilled: bool = False
+    silhouette_bad: bool = False
+
+    @property
+    def retry_emphasis(self) -> str | None:
+        """下一次重画要强调的方向；None 表示没有明确的确定性原因。"""
+        if self.underfilled:
+            return "underfilled"
+        if self.silhouette_bad:
+            return "silhouette"
+        return None
 
 
 def style_blocking_issues(
@@ -38,6 +53,7 @@ def style_blocking_issues(
     *,
     hard_keys: list[str] | None = None,
     hard_max: dict[str, float] | None = None,
+    floor: dict[str, float] | None = None,
 ) -> list[str]:
     """从风格度量里挑出**真正当闸门**的偏离。
 
@@ -46,6 +62,11 @@ def style_blocking_issues(
     于是一张质检 0.93、Logo 实心、鞋带正确的好画稿，因为
     `filled_block_share=0.0149 < 0.020`（V2 规则只许 Logo 填色，实心块本来就少）
     被判不合格，白烧两次生成并给用户看失败页。
+
+    ``floor``（2026-09-24 新增）：**硬下限**，用于“整双鞋太轻 / 一块实色都没有”。
+    为什么必须是确定性判定：实测判官给勾没填的画稿打了 `logo_filled = 1.0`
+    （它的提示词里有“看不到标识就按 1.0”的宽容条款，被过度套用），于是那张稿子
+    直接过关、不会触发重画。这类可量化的事不能交给模型。
     """
     out: list[str] = []
     for key in hard_keys or []:
@@ -59,6 +80,10 @@ def style_blocking_issues(
         value = metrics.get(key)
         if value is not None and value > ceiling:
             out.append(f"{key}={value} 超出硬上限 {ceiling}（禁止整块涂黑）")
+    for key, low in (floor or {}).items():
+        value = metrics.get(key)
+        if value is not None and value < low:
+            out.append(f"{key}={value} 低于硬下限 {low}（整双鞋太轻，缺少实色块）")
     return out
 
 
@@ -122,6 +147,8 @@ def verify_lineart(
     judge: QualityJudge,
     recorder: CallRecorder,
     settings: Settings,
+    cutout_png: bytes | None = None,
+    canvas_png: bytes | None = None,
 ) -> VerifyResult:
     artwork_check = check_artwork(artwork_png, settings.artwork_width, settings.artwork_height)
     style_metrics = measure_style(artwork_png)
@@ -136,8 +163,35 @@ def verify_lineart(
         targets,
         hard_keys=style.quality_gate.style_hard_keys,
         hard_max=style.quality_gate.style_hard_max,
+        floor=style.quality_gate.style_floor,
     )
-    artwork_check = {**artwork_check, "style_metrics": style_metrics, "style_ok": style_ok}
+
+    # 轮廓重合度（确定性，不靠模型打分）—— "鞋头整块没画"这类塌陷只有它能抳住。
+    silhouette: dict = {}
+    if canvas_png is not None:
+        silhouette = compare_silhouette(
+            cutout_png=cutout_png, canvas_png=canvas_png, artwork_png=artwork_png
+        )
+    silhouette_floor = float(style.quality_gate.silhouette_floor or 0.0)
+    silhouette_bad = bool(
+        silhouette_floor > 0
+        and silhouette.get("ok")
+        and silhouette.get("iou_frame", 1.0) < silhouette_floor
+    )
+    if silhouette_bad:
+        missing = ",".join(silhouette.get("missing_bands") or []) or "-"
+        blocking.append(
+            f"轮廓重合度 {silhouette['iou_frame']} 低于下限 {silhouette_floor}（缺失部位：{missing}）"
+        )
+
+    underfilled = any("低于硬下限" in item for item in blocking)
+
+    artwork_check = {
+        **artwork_check,
+        "style_metrics": style_metrics,
+        "style_ok": style_ok,
+        "silhouette": silhouette,
+    }
     report = judge.judge(
         model_name=model_name,
         style=style,
@@ -163,4 +217,7 @@ def verify_lineart(
         style_metrics=style_metrics,
         style_ok=style_ok,
         style_blocked=bool(blocking),
+        silhouette=silhouette,
+        underfilled=underfilled,
+        silhouette_bad=silhouette_bad,
     )

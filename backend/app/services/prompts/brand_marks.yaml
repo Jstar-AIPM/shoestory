@@ -1,0 +1,69 @@
+# 品牌标志性图形知识表（确定性资产，不是提示词）
+#
+# ## 为什么需要它（2026-09-24 产品反馈）
+#
+# 「该填实的地方没填」的根因是**决定权在模型手里** —— 而模型是按"照片里的颜色对比"
+# 判断要不要填的。实测证据（9-22 的风格实验 `17-Logo填色检查（黑鞋vs白鞋）`）：
+# 同一款 ASICS，白色那双的虎爪纹填实了，**黑色那双没有** —— 因为黑鞋配黑标，
+# 模型看不出那是个"标记"。
+#
+# 所以：品牌能认出来时，就由这张表决定"必须填实"，不再问模型。
+# 颜色对比只影响"看不看得见形状"，不影响"该不该填"。
+#
+# ## 维护说明
+#
+# - `aliases` 用小写；匹配时对品牌串做小写化与包含判断（`jordan` 能匹配 `Air Jordan`）。
+# - `mark` 是写进生成提示词的形状描述，要具体（"钩形"比"标志"有用）。
+# - 目前只做"品牌 → 标志性图形"。**型号特例**（某些鞋的标志性元素不止品牌 Logo）
+#   等真的遇到再加，不要凭想象预填 —— 写错的知识表比没有更糟。
+version: 1
+
+brands:
+  nike:
+    aliases: [nike, 耐克]
+    mark: 耐克勾形（Swoosh）
+    position: 鞋身外侧
+  jordan:
+    aliases: [jordan, air jordan, jumpman, 乔丹]
+    mark: 飞人（Jumpman）
+    position: 鞋身外侧（多见于后跟段）
+  adidas:
+    aliases: [adidas, 阿迪达斯, 三叶草]
+    mark: 三道杠（或三叶草标）
+    position: 鞋身外侧
+  "new balance":
+    aliases: [new balance, newbalance, 新百伦]
+    mark: 字母 N
+    position: 鞋身外侧中部
+  asics:
+    aliases: [asics, 亚瑟士]
+    mark: 虎爪纹（交叉条纹）
+    position: 鞋身两侧
+  puma:
+    aliases: [puma, 彪马]
+    mark: 跑道条纹
+    position: 鞋身外侧
+  converse:
+    aliases: [converse, 匡威]
+    mark: 圆形星箭标
+    position: 鞋帮外侧
+  vans:
+    aliases: [vans, 万斯]
+    mark: 侧边条纹
+    position: 鞋身外侧
+  reebok:
+    aliases: [reebok, 锐步]
+    mark: 矢量条纹
+    position: 鞋身外侧
+  "under armour":
+    aliases: [under armour, underarmour, 安德玛]
+    mark: 交叠弧线标
+    position: 鞋身外侧
+  李宁:
+    aliases: [李宁, lining, li-ning]
+    mark: 李宁标
+    position: 鞋身外侧
+  安踏:
+    aliases: [安踏, anta]
+    mark: 安踏标
+    position: 鞋身外侧

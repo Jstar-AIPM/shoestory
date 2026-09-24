@@ -192,6 +192,8 @@ class LineartGenerator(Protocol):
         logo_fill: str | None = None,
         shoe_texts: list[str] | None = None,
         avoid_logo: bool = False,
+        partial_logo: bool = False,
+        emphasis: str | None = None,
     ) -> bytes: ...
 
 

@@ -103,6 +103,7 @@ def _to_out(result: InspectResult, *, upscale: float = 1.0) -> InspectOut:
             "display_name": result.display_name,
             "logo_type": result.logo_type,
             "logo_position": vision.logo.position if vision and vision.logo.usable else "",
+            "logo_visibility": vision.logo.visibility if vision else "",
             "logo_fill_required": vision.logo.fill_required if vision else True,
             "texts": result.texts,
             "text_stamps": [

@@ -23,26 +23,41 @@ RETRY_REINFORCEMENT = (
 
 
 def _draw_hints_suffix(
-    logo_fill: str | None, shoe_texts: list[str] | None, *, avoid_logo: bool = False
+    logo_fill: str | None,
+    shoe_texts: list[str] | None,
+    *,
+    avoid_logo: bool = False,
+    partial_logo: bool = False,
 ) -> str:
     """把「Logo 填色 + 鞋身文字 + 填色边界」追加进正向提示词。
 
-    与质检闸门（logo_filled / laces_solid_ratio / text_legible）呼应：
+    与质检闸门（style_floor 的 thick_ink_share / logo_legibility）呼应：
     - Logo 标志性图形 → 纯黑实心填充（硬性）；
     - 鞋身文字 → 尽力还原，但「宁缺勿错」（写错的字母比不写更伤纪念档案可信度）；
     - 填色边界 → 只许填实小元素（Logo/鞋眼孔/透气孔），鞋带/中底/鞋面必须用轮廓线。
 
     ⚠️ 2026-09-23 线上实测（AJ36）：照片那个角度看不到飞人 Logo，模型于是**编了一个装饰性符号**，
     质检正确地判它"Logo 不对" → 整单失败、白烧两次生成。
-    所以 logo_fill 与 avoid_logo 必须二选一：原图看得见才要求填，看不见就明确禁止编造。
+    所以 logo_fill 与 avoid_logo 必须二选一。
+
+    ⚠️ 2026-09-24 线上实测（AF1 浅棕 / 黑色 ASICS）：模型是**按颜色对比**决定要不要填的 ——
+    同色系的标它就不填。所以这里特意加了一句"与鞋身同色也要填"，并且由代码（品牌知识表）
+    而不是模型来决定"必须填"。见 services/brand_marks.py。
     """
     parts: list[str] = []
     if logo_fill:
         parts.append(
-            f"\n【Logo 填色】把「{logo_fill}」用纯黑实心块填充，不要只画空心轮廓，"
+            f"\n【Logo 必须填实】把「{logo_fill}」用纯黑实心块填充，不要只画空心轮廓，"
             "形状必须清晰准确、不得简化变形；"
+            "⚠️ **即使它与鞋身同色（浅色鞋配浅色标、黑鞋配黑标、白鞋上的压印）也照样填成纯黑实心**，"
+            "不要因为它颜色不显眼就只描个轮廓；"
             "**只画原图里确实能看到的那一处标识**，不得添加原图里没有的品牌标识。"
         )
+        if partial_logo:
+            parts.append(
+                "\n【只画看得见的那部分】这个标识在原图里只露出一部分（被角度或遮挡挡住），"
+                "请**如实画可见的部分**，**不要把它补全成完整标识**，也不要移位置、不要换方向。"
+            )
     elif avoid_logo:
         parts.append(
             "\n【不要编造 Logo】这张原图的角度看不到明确的品牌标识："
@@ -57,10 +72,34 @@ def _draw_hints_suffix(
         )
     if parts:
         parts.append(
-            "\n【填色边界】只允许填实 Logo、鞋眼孔、透气孔等小元素；"
-            "鞋带、中底、鞋面必须用轮廓线/结构线表达，不得填成实心块。"
+            "\n【填色边界】只允许填实 Logo、鞋眼孔、透气孔等小元素，"
+            "以及原鞋上明显是深色的结构块（深色鞋头盖/后跟稳定片/深色鞋帮）；"
+            "鞋带、浅色中底、浅色鞋面必须用轮廓线表达，不得填成实心块。"
         )
     return "".join(parts)
+
+
+#: 定向重画的强化句：第一次没过时，**按失败原因**补不同的话。
+#: 为什么不能一律重跑同一套提示词：实测 AF1 两次生成一次勾填了、一次没填，
+#: 只是碰运气；而同一个矛盾（提示词说"极克制"又要求"必须填实"）不解决，
+#: 重画几次都是同一个错，白花钱。
+EMPHASIS_UNDERFILLED = (
+    "\n【本次重点修正】上一版画得太轻：整张画稿几乎只有线条，**一块实色都没有**。"
+    "这一版必须把品牌标志性图形（钩形/飞人/三道杠/交叉条纹）与深色结构块"
+    "（深色鞋头盖、后跟稳定片、深色鞋帮、深色中底）都用纯黑实心填出来，"
+    "黑色总量（线条 + 实色块）提到画面的 4%–9%；"
+    "**同色系的标识也要填**，不允许再交一张只有线条的画稿。"
+)
+EMPHASIS_SILHOUETTE = (
+    "\n【本次重点修正】上一版的鞋型与原鞋不符：外轮廓有缺失或走形。"
+    "这一版必须严格按第 2 张骨架图**逐段描摹外轮廓**，一段都不能省 ——"
+    "尤其是鞋头与前掌那段（原鞋是浅色也要画出来，它与白底的区别就看这条线）；"
+    "不得改变鞋型、不得增删部件、不得把鞋子画成局部特写。"
+)
+EMPHASIS = {
+    "underfilled": EMPHASIS_UNDERFILLED,
+    "silhouette": EMPHASIS_SILHOUETTE,
+}
 
 
 class ArkLineartGenerator:
@@ -84,6 +123,8 @@ class ArkLineartGenerator:
         logo_fill: str | None = None,
         shoe_texts: list[str] | None = None,
         avoid_logo: bool = False,
+        partial_logo: bool = False,
+        emphasis: str | None = None,
     ) -> bytes:
         params = style.provider_params or {}
         size = str(params.get("size") or f"{self.settings.artwork_width}x{self.settings.artwork_height}")
@@ -93,7 +134,11 @@ class ArkLineartGenerator:
                 f"\n【画的款式】{model_name}。必须严格忠于这只鞋的实际款式与结构，"
                 "不得替换成同品牌的其他型号、不得凭想象增删部件。"
             )
-        positive += _draw_hints_suffix(logo_fill, shoe_texts, avoid_logo=avoid_logo)
+        positive += _draw_hints_suffix(
+            logo_fill, shoe_texts, avoid_logo=avoid_logo, partial_logo=partial_logo
+        )
+        if emphasis in EMPHASIS:
+            positive += EMPHASIS[emphasis]
         if canvas_png is None:
             positive += (
                 "\n【本次没有参考照片】请依据你对这款鞋的了解，画出它的正侧面线稿，"
@@ -159,6 +204,7 @@ class ArkLineartGenerator:
                 "bytes": len(data),
                 "references": 1 + len(references),
                 "reference_kb": (len(prepared_canvas) // 1024) if prepared_canvas else 0,
+                "emphasis": emphasis or "",
                 "prompt_optimize": params.get("prompt_optimize_mode")
                 or self.settings.image_prompt_optimize_mode,
             },

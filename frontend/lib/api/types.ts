@@ -30,6 +30,8 @@ export type InspectResponse = {
     display_name: string;
     logo_type: string;
     logo_position: string;
+    /** full / partial / none —— 这张照片里形状看不看得见（与颜色对比无关） */
+    logo_visibility: string;
     logo_fill_required: boolean;
     texts: string[];
     text_stamps: TextStamp[];
@@ -49,6 +51,8 @@ export type UploadTaskPayload = {
     colorway: string;
     logo_type: string;
     logo_position: string;
+    /** full / partial / none —— 这张照片里形状看不看得见（与颜色对比无关） */
+    logo_visibility: string;
     logo_fill_required: boolean;
     texts: string[];
     text_stamps: TextStamp[];

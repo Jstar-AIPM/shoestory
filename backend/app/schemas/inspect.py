@@ -19,12 +19,19 @@ UNCERTAIN_CONFIDENCE = 0.45
 
 
 class LogoInfo(BaseModel):
-    """品牌标志性图形（线稿里需要填实的那部分）。"""
+    """品牌标志性图形（线稿里需要填实的那部分）。
+
+    ``visibility`` 描述"这张照片里看不看得见形状"，与颜色对比无关 ——
+    黑色鞋上的黑色 Logo 也算看得见。它是"该不该填实 / 要不要禁止编造"的决策依据，
+    与 ``type``（说不出形状时留空）是两码事：见 services/brand_marks.py。
+    """
 
     model_config = ConfigDict(extra="ignore")
 
     type: str = Field(default="", max_length=60)
     position: str = Field(default="", max_length=60)
+    #: full / partial / none；空串 = 老记录没有这个字段
+    visibility: str = Field(default="", max_length=10)
     fill_required: bool = True
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
 
@@ -33,10 +40,23 @@ class LogoInfo(BaseModel):
     def _clean(cls, value: Any) -> str:
         return "" if value is None else str(value).strip()
 
+    @field_validator("visibility", mode="before")
+    @classmethod
+    def _clean_visibility(cls, value: Any) -> str:
+        text = "" if value is None else str(value).strip().lower()
+        return text if text in {"full", "partial", "none"} else ""
+
     @property
     def usable(self) -> bool:
         """够不够具体到可以写进提示词（含糊的"图案"没用）。"""
         return len(self.type) >= 2
+
+    @property
+    def visible(self) -> bool:
+        """形状能不能辨认（老记录缺这个字段时，用类型是否能说出来当退路）。"""
+        if self.visibility:
+            return self.visibility != "none"
+        return self.usable
 
 
 class ShoeText(BaseModel):

@@ -32,6 +32,7 @@ from app.services.style.loader import StyleTemplate
 from app.services.style.registry import StyleRegistry
 from app.services.cv.edges import extract_edge_map
 from app.services.cv.text_stamp import TextStamp, build_text_stamp, composite_text_stamps
+from app.services.brand_marks import FillPlan, resolve_fill_plan
 from app.services.tools.generate_lineart import generate_lineart
 from app.services.tools.normalize_view import normalize_view
 from app.services.tools.prepare_source import MODE_REASON, prepare_source_candidates
@@ -169,6 +170,7 @@ class PipelineRunner:
         # 质检比对的参考图：正常路径用源图；型号直出时用搜到的最佳候选（可能没有）
         source_png: bytes | None
         canvas_png: bytes | None
+        cutout_png: bytes | None = None
         structure_png: bytes | None = None
         if model_only:
             canvas_png = None
@@ -179,12 +181,30 @@ class PipelineRunner:
         else:
             source_png = self.asset_store.get_task_file(owner_id, task_id, SOURCE_FILENAME)
             canvas_png = self.asset_store.get(record.source.source_path)  # type: ignore[arg-type]
+            cutout_key = self.asset_store.task_key(owner_id, task_id, CUTOUT_FILENAME)
+            if self.asset_store.exists(cutout_key):
+                # 抠图掩膜是"原鞋轮廓"的精确来源（白鞋配白底时，画布上的非白像素靠不住）
+                cutout_png = self.asset_store.get(cutout_key)
             if self.settings.enable_structure_reference:
                 structure_key = self.asset_store.task_key(owner_id, task_id, EDGE_FILENAME)
                 if self.asset_store.exists(structure_key):
                     structure_png = self.asset_store.get(structure_key)
 
+        # 「填什么、要不要填、能不能编」由代码决定（品牌知识表 + 可见程度），不问模型心情。
+        # 2026-09-24 产品反馈：同色系的鞋（浅棕 AF1、黑鞋配黑标）模型按颜色对比判断，永远不填。
+        plan = self._fill_plan(record)
+        trace.write(
+            "fill_plan",
+            hint=plan.logo_hint,
+            must_fill=plan.must_fill,
+            forbid_logo=plan.forbid_logo,
+            partial=plan.partial,
+            source=plan.source,
+        )
+
         max_attempts = max(1, self.settings.gen_max_attempts)
+        #: 定向重画：上一次没过时，按失败原因补不同的强化句（而不是把同一套提示词重跑一遍）
+        emphasis: str | None = None
         while record.attempts.used_in_round < max_attempts:
             record.attempts.used_in_round += 1
             record.attempts.total += 1
@@ -199,13 +219,11 @@ class PipelineRunner:
                     recorder=recorder,
                     structure_reference=structure_png,
                     model_name=record.resolve.normalized or record.query,
-                    logo_fill=record.inspect.logo_fill_hint if record.inspect else None,
+                    logo_fill=plan.logo_hint or None,
                     shoe_texts=record.inspect.texts if record.inspect else None,
-                    # 体检没看到品牌标识（或标记为"无需填实"）→ 明确禁止编造 Logo
-                    avoid_logo=bool(
-                        record.inspect
-                        and (not record.inspect.logo_type or not record.inspect.logo_fill_required)
-                    ),
+                    avoid_logo=plan.forbid_logo,
+                    partial_logo=plan.partial,
+                    emphasis=emphasis,
                 )
                 self.asset_store.put_task_file(owner_id, task_id, f"raw_a{attempt}.png", raw)
 
@@ -227,6 +245,8 @@ class PipelineRunner:
                     judge=self.providers.judge,
                     recorder=recorder,
                     settings=self.settings,
+                    cutout_png=cutout_png,
+                    canvas_png=canvas_png,
                 )
 
                 # 文字兜底贴合（决策记录九.⑧）：文字可辨度过低时，把原图裁出的文字贴到线稿
@@ -304,6 +324,17 @@ class PipelineRunner:
                             est_cost_cny=recorder.total_cost, calls=recorder.traces())
                 return
 
+            # 定向重画：下一次按**这次失败的原因**补强化句，
+            # 而不是把同一套提示词重跑一遍（实测那样重画几次都犯同一个错）。
+            emphasis = result.retry_emphasis
+            trace.write(
+                "retry_planned",
+                attempt=attempt,
+                underfilled=result.underfilled,
+                silhouette_bad=result.silhouette_bad,
+                emphasis=emphasis or "",
+            )
+
             if record.attempts.used_in_round >= max_attempts:
                 # 产品原则（2026-09-23 产品反馈）：**不要 dead-end**。
                 # 只要画出了至少一张，就把它交给用户裁决（满意归档 / 重新画）——
@@ -329,6 +360,25 @@ class PipelineRunner:
                 return
 
     # ------------------------------------------------------------------ 步骤
+    @staticmethod
+    def _fill_plan(record: TaskRecord) -> FillPlan:
+        """把体检结论翻成"填什么 / 要不要填 / 能不能编"。
+
+        决定权在代码（品牌知识表 + 可见程度），不问模型心情 —— 因为模型是按
+        "照片里的颜色对比"判断的，同色系的标（浅棕 AF1、黑鞋配黑标）永远不填。
+        """
+        hints = record.inspect
+        if hints is None:
+            return FillPlan()
+        return resolve_fill_plan(
+            brand=hints.brand,
+            model_name=hints.model_name,
+            logo_type=hints.logo_type,
+            logo_position=hints.logo_position,
+            logo_visibility=hints.logo_visibility,
+            logo_fill_required=hints.logo_fill_required,
+        )
+
     @staticmethod
     def _user_note(result) -> str:
         """给用户看的一句话：自检没完全通过（**不含质检细节** —— 产品反馈：细节不外显）。

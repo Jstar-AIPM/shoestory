@@ -136,6 +136,7 @@ export function useUploadFlow(onStart?: (payload: UploadTaskPayload) => Promise<
           colorway: inspect.detail.colorway,
           logo_type: inspect.detail.logo_type,
           logo_position: inspect.detail.logo_position,
+          logo_visibility: inspect.detail.logo_visibility,
           logo_fill_required: inspect.detail.logo_fill_required,
           texts: inspect.detail.texts,
           text_stamps: inspect.detail.text_stamps ?? [],

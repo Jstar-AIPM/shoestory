@@ -53,6 +53,15 @@ class QualityGate(BaseModel):
     style_hard_keys: list[str] = Field(default_factory=list)
     #: 风格指标的硬上限（如「大面积涂黑」上限）：value > 上限 -> 不合格
     style_hard_max: dict[str, float] = Field(default_factory=dict)
+    #: 风格指标的**硬下限**：value < 下限 -> 不合格。
+    #: 用途：「整双鞋太轻 / 一块实色都没有」。
+    #: 为什么不交给视觉模型判：2026-09-24 实测，判官给一张勾没填的画稿打了
+    #: `logo_filled = 1.0`（它的提示词里有"看不到标识就按 1.0"的宽容条款，被过度套用了），
+    #: 于是那张不合格的稿子直接过关、不会触发重画。填色这类可量化的事由代码判。
+    style_floor: dict[str, float] = Field(default_factory=dict)
+    #: 轮廓重合度下限（0 = 关闭）。由 `cv/silhouette.py` 确定性计算，
+    #: 用于抳下"鞋头/前掌整块没画出来"这类塌陷（2026-09-24 的 PG4）。
+    silhouette_floor: float = 0.0
     min_score: float = 0.80
     #: 风格一致性闸门：metric -> [low, high]，由参考图量化得出，由代码判定
     style_metrics: dict[str, list[float]] = Field(default_factory=dict)
