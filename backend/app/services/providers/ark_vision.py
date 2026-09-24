@@ -30,12 +30,14 @@ class ArkQualityJudge:
         self.settings = settings
         self.model = settings.ark_vision_model
         self.client = ArkClient(settings)
-        self.system_prompt = self._load_prompt()
+        #: 按文件名缓存：不同风格用不同的判官提示词（黑白 vs 水彩的"合格"标准不一样）
+        self._prompt_cache: dict[str, str] = {}
 
-    @staticmethod
-    def _load_prompt() -> str:
+    def _load_prompt(self, name: str) -> str:
         # 质检提示词缺失 = 质检闸门失效（比报错更危险），必须能在日志/健康检查里看见
-        return load_prompt_text("verify_lineart.md", SYSTEM_FALLBACK)
+        if name not in self._prompt_cache:
+            self._prompt_cache[name] = load_prompt_text(name, SYSTEM_FALLBACK)
+        return self._prompt_cache[name]
 
     def judge(
         self,
@@ -69,7 +71,7 @@ class ArkQualityJudge:
             try:
                 text = self.client.chat_text(
                     model=self.model,
-                    system=self.system_prompt,
+                    system=self._load_prompt(style.judge_prompt),
                     user=user,
                     images=images,
                     temperature=0.0,

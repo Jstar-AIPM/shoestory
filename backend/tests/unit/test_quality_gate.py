@@ -325,3 +325,28 @@ def test_ink_ratio_ceiling_is_a_hard_gate() -> None:
     blocked = style_blocking_issues({"ink_ratio": 0.20}, {}, hard_max=ceilings)
     assert blocked and "超出硬上限" in blocked[0]
     assert style_blocking_issues({"ink_ratio": 0.05}, {}, hard_max=ceilings) == []
+
+
+def test_judge_verdict_fail_is_a_gate() -> None:
+    """判官说 fail，就算分数够也要判不合格。
+
+    2026-09-24 实测：把水彩的色相整体旋转 160°（配色完全错了）、把饱和度压到 12%
+    （褪成灰），判官的逐项分数只从 0.94 掉到 0.90，加权总分仍 0.94（闸门 0.82），
+    但它的 `verdict` 字段把这两种都正确判成了 fail —— **分数是压缩的，verdict 才分得开**。
+    """
+    style = default_style()
+    passed_without = score_and_gate(REAL_CASE_REPORT, 1.0, style, 0.80)[1]
+    assert passed_without is True
+    _score, passed, issues = score_and_gate(
+        REAL_CASE_REPORT, 1.0, style, 0.80, judge_verdict="fail"
+    )
+    assert passed is False
+    assert any("独立质检判定不合格" in item for item in issues)
+
+
+def test_judge_verdict_pass_does_not_block() -> None:
+    style = default_style()
+    _score, passed, _issues = score_and_gate(
+        REAL_CASE_REPORT, 1.0, style, 0.80, judge_verdict="pass"
+    )
+    assert passed is True

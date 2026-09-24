@@ -30,6 +30,7 @@ REQUIRED_PROMPTS: tuple[str, ...] = (
     "rank_source_images.md",
     "screen_source_images.md",
     "inspect_photo.md",
+    "verify_watercolor.md",
     "brand_marks.yaml",
 )
 

@@ -62,6 +62,8 @@ class QualityGate(BaseModel):
     #: 轮廓重合度下限（0 = 关闭）。由 `cv/silhouette.py` 确定性计算，
     #: 用于抳下"鞋头/前掌整块没画出来"这类塌陷（2026-09-24 的 PG4）。
     silhouette_floor: float = 0.0
+    #: 用哪份判官提示词（默认黑白那份；水彩用 verify_watercolor.md）
+    judge_prompt: str = ""
     min_score: float = 0.80
     #: 风格一致性闸门：metric -> [low, high]，由参考图量化得出，由代码判定
     style_metrics: dict[str, list[float]] = Field(default_factory=dict)
@@ -87,6 +89,15 @@ class StyleTemplate(BaseModel):
     provider_params: dict = Field(default_factory=dict)
     postprocess: dict = Field(default_factory=dict)
     quality_gate: QualityGate
+
+    @property
+    def judge_prompt(self) -> str:
+        """用哪份判官提示词。不同风格的"合格"标准不一样，判官也必须换。
+
+        黑白那份按"纯二值、Logo 纯黑实心"来打分；拿它判水彩会把正确产出判成不合格
+        （实测：它给水彩的 `style_consistency` 打分没有参考价值），所以按风格分开。
+        """
+        return str(self.quality_gate.judge_prompt or "verify_lineart.md")
 
     @property
     def needs_structure_reference(self) -> bool:

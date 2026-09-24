@@ -92,20 +92,45 @@ postprocess:
   normalize_to_canvas: true
 
 quality_gate:
+  # 判官提示词按风格换 —— 黑白那份按"纯二值、Logo 纯黑实心"打分，
+  # 拿它判水彩会把正确产出判成不合格（实测其 style_consistency 无参考价值）。
+  judge_prompt: verify_watercolor.md
   checks: [shoe_silhouette_match, logo_legibility, style_consistency, noise_level, canvas_ratio]
   weights:
-    shoe_silhouette_match: 0.35
-    logo_legibility: 0.25
-    style_consistency: 0.20
-    noise_level: 0.10
+    # 与黑白不同：水彩里"风格与配色保眞"就是主要质量轴（黑白里主要轴是鞋型与 Logo），
+    # 所以 style_consistency 提到 0.35。
+    shoe_silhouette_match: 0.30
+    logo_legibility: 0.20
+    style_consistency: 0.35
+    noise_level: 0.05
     canvas_ratio: 0.10
   hard_gate:
-    # 探测阶段只卡画布：尺寸/3:2/背景留白必须对。
-    # `logo_filled` 是黑白专属（纯黑实心），水彩不适用，故意不加。
+    # canvas_ratio 是确定性判定（尺寸/3:2/背景留白），必须满分。
+    # 另外两条用视觉模型的分数兜底 —— 但阈值刻意放低：判官本身有波动，
+    # 卡太紧会把正确产出误杀（黑白那次的教训：闸门过硬 → 白烧重画）。
     canvas_ratio: 1.0
-  # 探测阶段故意设 0：每双只生成一次，不做自动重画 —— 要测的是"第一枪有多准"。
-  # 正式上线前要按水彩的真实水平重新标定（并配一份水彩判官提示词）。
-  min_score: 0.0
+    shoe_silhouette_match: 0.60
+    logo_legibility: 0.60
+  min_score: 0.82
+  # ------------------------------------------------------------------
+  # 确定性指标：只留**实测稳定**的两条（11 张真实水彩标定）
+  #
+  #   subject_ratio     实测 0.298–0.357（参考图 0.30–0.47）→ 区间放到 [0.15, 0.60]
+  #   paper_luminance   实测 11 张全是 246.5（纸色极稳）→ 下限 200
+  #
+  # ⚠️ 配色保真度**没有**做成闸门，原因如实记着：
+  #   我试过"色相直方图重叠度（hue_match）"，实测**不具区分度** ——
+  #   11 张里分数最高的是 Stan Smith（0.84，一双白鞋），最低的是 KD12（0.02），
+  #   而两张目视都是好的。根因：原鞋本身没颜色时（KD12 的彩色像素占比仅 0.001）
+  #   色相直方图就是噪声；即使原鞋有颜色，同一批正确产出的取值也散在 0.20–0.78，
+  #   没有任何阈值能分开好与坏。
+  #   所以 `hue_match` / `sat_ratio` / `chromatic_ratio` **只记录、不判定**，
+  #   配色保真交给判官（它本来就更擅长这件事），这是当前已知的弱点。
+  # ------------------------------------------------------------------
+  style_metrics:
+    subject_ratio: [0.15, 0.60]
+    paper_luminance: [200, 255]
+  style_hard_keys: [subject_ratio, paper_luminance]
   # 轮廓重合度对彩色画稿同样有意义，且是确定性的，保留。
   # 0.70 沿用黑白那批的标定：正常产出 0.73–0.98，塌陷的 0.27。
   silhouette_floor: 0.70

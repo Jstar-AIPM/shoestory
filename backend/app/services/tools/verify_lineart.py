@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from app.core.config import Settings
 from app.schemas.llm import QualityReportOut
 from app.services.cv.binarize import check_artwork
+from app.services.cv.color import measure_color
 from app.services.cv.silhouette import compare_silhouette
 from app.services.cv.style import compare_to_targets, measure_style
 from app.services.providers.base import CallRecorder, QualityJudge
@@ -101,6 +102,7 @@ def score_and_gate(
     style_ok: bool = True,
     style_issues: list[str] | None = None,
     style_blocked: bool | None = None,
+    judge_verdict: str = "",
 ) -> tuple[float, bool, list[str]]:
     weights = dict(style.quality_gate.weights)
     scores: dict[str, float] = {
@@ -140,6 +142,15 @@ def score_and_gate(
         # 风格一致性由确定性代码判定（参考图量化得出），不信模型
         passed = False
         issues.extend(f"风格一致性未达标：{item}" for item in (style_issues or []))
+    # 判官自己的结论也要当判据（2026-09-24 实测后才加）：
+    # 视觉模型的**逐项分数是压缩的** —— 把水彩的色相整体旋转 160°（配色完全错了）、
+    # 或者把饱和度压到 12%（褪成灰），`style_consistency` 只从 0.94 掉到 0.90，
+    # 加权总分仍在 0.94（远高于闸门 0.82）。但同一个判官的 **verdict 字段**把这两种
+    # 明确判成了 fail，并且准确说出了"原鞋是白/大学红/深藏青，插画改成了亮绿蓝绿橄榄绿"。
+    # 所以：分数用来排序，verdict 用来定成败。
+    if (judge_verdict or "").strip().lower() == "fail":
+        passed = False
+        issues.append("独立质检判定不合格（详见 issues）")
     return score, passed, issues
 
 
@@ -164,7 +175,13 @@ def verify_lineart(
         min_background_ratio=style.background_ratio_floor,
         background_label="white" if style.binarize else "paper",
     )
-    style_metrics = measure_style(artwork_png)
+    # 指标也要按风格分派：黑白的"墨量/排线/实心块"对彩色画稿没有意义
+    # （彩色稿里没有黑墨，硬算出来的是噪声值 —— 实测把每张水彩都误判成"轮廓塌陷"）
+    style_metrics = (
+        measure_style(artwork_png)
+        if style.binarize
+        else measure_color(artwork_png, canvas_png=canvas_png, cutout_png=cutout_png)
+    )
     targets = {
         key: (float(values[0]), float(values[1]))
         for key, values in (style.quality_gate.style_metrics or {}).items()
@@ -225,6 +242,7 @@ def verify_lineart(
         style_ok=style_ok,
         style_issues=blocking or style_issues,
         style_blocked=bool(blocking),
+        judge_verdict=report.verdict,
     )
     return VerifyResult(
         report=report,

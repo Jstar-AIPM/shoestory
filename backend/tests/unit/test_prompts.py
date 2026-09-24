@@ -74,7 +74,9 @@ def test_provider_prompts_are_loaded_from_files(settings) -> None:
 
     assert ArkModelResolver(settings).system_prompt != TEXT_FALLBACK
     judge = ArkQualityJudge(settings)
-    assert judge.system_prompt != VISION_FALLBACK
+    # 判官提示词自 2026-09-24 起按风格加载（黑白 vs 水彩的"合格"标准不一样）
+    assert judge._load_prompt("verify_lineart.md") != VISION_FALLBACK
+    assert judge._load_prompt("verify_watercolor.md") != VISION_FALLBACK
     # 预筛提示词走另一个加载函数：这里必须显式验证脚本化，
     # 否则一旦打包漏了 prompt，只有线上真跑搜图时才会以 500 暴露（已踩过）。
     assert judge._load_screen_prompt() != SCREEN_FALLBACK
@@ -87,7 +89,11 @@ def test_every_runtime_prompt_used_by_code_is_in_required_list() -> None:
     for path in sources:
         text = path.read_text(encoding="utf-8")
         referenced.update(re.findall(r'load_prompt_text\(\s*"([^"]+\.md)"', text))
-    assert referenced, "没有找到任何 load_prompt_text 调用，测试已失效"
+    # 判官提示词是按风格配置的（不在代码里写死文件名），所以还要扫风格模板 ——
+    # 否则新增一份风格（及其判官提示词）时，健康检查会漏报"文件没打进包"。
+    for style_path in (REPO_ROOT / "backend" / "app" / "services" / "prompts" / "styles").glob("*.yaml"):
+        referenced.update(re.findall(r"judge_prompt:\s*([\w.]+\.md)", style_path.read_text(encoding="utf-8")))
+    assert referenced, "没有找到任何 prompt 引用，测试已失效"
     missing = referenced - set(loader.REQUIRED_PROMPTS)
     assert not missing, f"这些 Prompt 被代码读取但不在 REQUIRED_PROMPTS 里：{sorted(missing)}"
 
