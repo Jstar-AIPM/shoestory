@@ -149,7 +149,7 @@ def create_task(
 ) -> TaskOut:
     container = get_container(request)
     settings = container.settings
-    style = container.styles.get(payload.style_id or settings.style_id)
+    style = container.styles.resolve_for_new_task(payload.style_id, settings.style_id)
 
     # 额度：1 次生成 = 扣 1 次（本地开发未启用登录时不计数）
     consume_generation(settings, container.invite_store, owner_id)
@@ -231,7 +231,7 @@ def create_upload_task(
     """
     container = get_container(request)
     settings = container.settings
-    style = container.styles.get(payload.style_id or settings.style_id)
+    style = container.styles.resolve_for_new_task(payload.style_id, settings.style_id)
 
     # 额度：1 次生成 = 扣 1 次（体检另计，不在此列）
     consume_generation(settings, container.invite_store, owner_id)

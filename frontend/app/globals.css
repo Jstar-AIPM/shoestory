@@ -223,6 +223,12 @@ body {
   mix-blend-mode: multiply;
 }
 
+/* 自带纸底的画稿（水彩等）：不叠牛皮纸、不做 multiply，只给一个同色兜底
+   —— 避免图片比例若不完美时露出刺眼的白边。配色与水彩模板的 canvas_background 一致。 */
+.artwork-plain {
+  background-color: #faf6f0;
+}
+
 /* 扫过式揭示：从左到右揭示草稿（移动遮罩 + 一道扫光） */
 @keyframes sweep-reveal {
   from { clip-path: inset(0 100% 0 0); }

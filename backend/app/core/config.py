@@ -96,7 +96,7 @@ class Settings(BaseSettings):
     search_relax_on_empty: bool = True
 
     # ---------- 生成与质检 ----------
-    style_id: str = "bw_lineart"
+    style_id: str = "watercolor"  # 2026-09-24 主风格切水彩；黑白线稿已隐藏但保留
     #: 每轮自动生成张数。PM 已确认「用户只看到 1 张」——这项控制的是**内部**最多画几张：
     #: 设为 2 时，若第 1 张被质检判不合格（fast 模式偶发 Logo 崩坏），会自动补画 1 张再交付，
     #: 用户感知不到、也不额外消耗额度；极端情况（且第 1 张已达标）不会多花钱。

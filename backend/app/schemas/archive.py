@@ -92,6 +92,9 @@ class ArchiveListOut(BaseModel):
     shoe_id: str
     model_name: str
     artwork_url: str
+    #: 这双鞋当初用哪个风格画的 —— 鞋柜里可能新旧混着，卡片要按各自风格渲染
+    #: （黑白稿需要叠一层牛皮纸，水彩稿自带纸色、叠了会被染成褐色）
+    style_id: str = "bw_lineart"
     date_text: str | None = None
     date_sort_key: str | None = None
     created_at: str

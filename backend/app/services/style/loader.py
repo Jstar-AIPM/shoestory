@@ -82,6 +82,10 @@ class StyleTemplate(BaseModel):
     style_id: str = Field(min_length=1, max_length=40)
     name: str = ""
     version: int = 1
+    #: 是否对用户隐藏。隐藏的风格：不出现在风格列表、不能用来建新任务，
+    #: 但**文件和代码全留着** —— 老档案还要按它渲染，将来想启用改这一个字段即可。
+    #: （2026-09-24：这一版主风格切成水彩，黑白线稿先隐藏，后续再回来做。）
+    hidden: bool = False
     reference_images: list[str] = Field(default_factory=list)
     canvas: CanvasSpec
     prompt: PromptSpec

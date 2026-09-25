@@ -49,7 +49,7 @@ export function CabinetGrid({
         <Card className="mt-3 border-dashed px-5 py-5 text-center shadow-none">
           <p className="text-[15px] font-semibold text-ink">鞋柜还是空的</p>
           <p className="mx-auto mt-1.5 max-w-[460px] text-[13px] leading-relaxed text-muted">
-            在上面上传一张您那双鞋的照片（白底、正侧面最好），它会变成一张黑白线稿，成为鞋柜里的第一行。
+            在上面上传一张您那双鞋的照片（白底、正侧面最好），它会变成一张手绘水彩插画，成为鞋柜里的第一行。
           </p>
         </Card>
       ) : null}

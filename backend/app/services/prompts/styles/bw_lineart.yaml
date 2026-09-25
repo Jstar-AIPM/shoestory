@@ -4,6 +4,11 @@
 style_id: bw_lineart
 name: 黑白线稿
 version: 4
+#: 2026-09-24 起对用户隐藏：这一版主风格切成水彩（用户判断：水彩出稿更稳、视觉冲击更强）。
+#: **文件和代码全部保留** —— 老档案还要按它渲染，而且它身上那些与风格无关的修复
+#: （抠图补白鞋、骨架图补外轮廓、选稿优先取通过的）水彩也在用。
+#: 后续会把"填色可控性"再做一轮，做完把 hidden 改回 false 就能启用。
+hidden: true
 reference_images: [AJ14, KD12, PG1, PG6] # ground truth：风格参考/ 目录（不随线上发布）
 reference_metrics: docs/风格量化指标.md # 量化结果与目标区间
 

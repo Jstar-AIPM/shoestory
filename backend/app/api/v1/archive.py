@@ -25,6 +25,7 @@ def _to_list_item(item) -> ArchiveListOut:
         shoe_id=item.shoe_id,
         model_name=item.model_name,
         artwork_url=f"/api/v1/archive/{item.shoe_id}/artwork.png",
+        style_id=item.style_id,
         date_text=item.date_text,
         date_sort_key=item.date_sort_key,
         created_at=item.created_at,

@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "鞋历 · 我的鞋柜",
-  description: "上传一张球鞋照片，把它变成一张黑白线稿，收进您的鞋柜。收藏的不只是球鞋，是走过的日子。",
+  description: "上传一张球鞋照片，把它变成一张手绘水彩插画，收进您的鞋柜。收藏的不只是球鞋，是走过的日子。",
 };
 
 export const viewport: Viewport = {

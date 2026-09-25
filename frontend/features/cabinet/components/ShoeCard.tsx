@@ -1,9 +1,12 @@
 import { cn } from "@/lib/utils/cn";
+import { artworkFrameClass } from "@/lib/utils/artwork";
 
 export type ShoeCardItem = {
   shoeId: string;
   modelName: string;
   artworkUrl: string;
+  /** 画稿风格 —— 决定要不要叠牛皮纸底（见 lib/utils/artwork） */
+  styleId?: string | null;
   dateText?: string | null;
 };
 
@@ -32,10 +35,10 @@ export function ShoeCard({
         className,
       )}
     >
-      <span className="artwork-paper frame-3x2 border-b border-line">
+      <span className={cn(artworkFrameClass(item.styleId), "frame-3x2 border-b border-line")}>
         {/* 画稿是绝对主角：3:2 容器 + contain，绝不裁切 */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={item.artworkUrl} alt={`${item.modelName} 的黑白线稿`} loading="lazy" />
+        <img src={item.artworkUrl} alt={`${item.modelName} 的插画`} loading="lazy" />
       </span>
       <span className="block min-w-0 px-3 py-2.5">
         {/* 型号最多两行：手机端单行截断会让人认不出是哪双鞋 */}

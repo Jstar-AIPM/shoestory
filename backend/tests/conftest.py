@@ -14,6 +14,13 @@ from app.core.container import Container, build_container
 from app.main import create_app
 
 
+#: 集成测试统一用哪个风格。
+#: 这些用例测的是**黑白线稿的机制**（纯二值画稿、Logo 填色提示、文字兜底等）。
+#: 2026-09-24 起主风格切成水彩、黑白被设为 hidden（不对外提供，但**代码保留**、
+#: 显式指定仍可用），所以测试显式指定它；水彩路径另有专门测试。
+TEST_STYLE_ID = "bw_lineart"
+
+
 def make_png_bytes(width: int = 1200, height: int = 800, color: tuple[int, int, int] = (60, 60, 60)) -> bytes:
     """造一张“像鞋图”的 PNG，用于手动源图与文件校验测试。"""
     img = Image.new("RGB", (width, height), (240, 240, 240))
@@ -44,6 +51,7 @@ def settings(tmp_path: Path) -> Settings:
         mock_quality="good",
         allowed_source_dirs=str(allowed),
         app_log_level="WARNING",
+        style_id=TEST_STYLE_ID,
     )
 
 
@@ -87,6 +95,7 @@ def client_factory(tmp_path: Path):
             "mock_quality": "good",
             "allowed_source_dirs": str(allowed),
             "app_log_level": "WARNING",
+            "style_id": TEST_STYLE_ID,
             # 阶段 4：默认关闭强制登录，便于既有用例；需要鉴权的用例显式传 env="prod"
         }
         base.update(overrides)

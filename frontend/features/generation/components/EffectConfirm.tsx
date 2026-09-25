@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusBar } from "@/components/ui/StatusBar";
 import type { TaskOut } from "@/lib/api/types";
+import { artworkFrameClass } from "@/lib/utils/artwork";
 
 export function EffectConfirm({
   task,
@@ -41,12 +42,12 @@ export function EffectConfirm({
       <div className="mx-auto w-full max-w-[720px]">
         <div
           data-theme="card-paper"
-          className="artwork-paper artwork-frame overflow-hidden rounded-[var(--radius-card)] border border-line"
+          className={`${artworkFrameClass(task.style_id)} artwork-frame overflow-hidden rounded-[var(--radius-card)] border border-line`}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={artworkSrc}
-            alt={`${task.normalize?.normalized ?? task.query} 的黑白线稿`}
+            alt={`${task.normalize?.normalized ?? task.query} 的插画`}
             className="artwork-fade-in frame-3x2"
             style={{ objectFit: "contain" }}
           />

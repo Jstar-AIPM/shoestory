@@ -22,10 +22,14 @@ def test_health_reports_missing_key_honestly(client: TestClient) -> None:
 
 
 def test_styles_endpoint(client: TestClient) -> None:
-    """风格列表。2026-09-24 起不止一种（新增水彩，实验阶段），所以按"包含"断言。"""
+    """风格列表只列**对外开放**的风格。
+
+    2026-09-24：主风格切成水彩，黑白线稿设为 hidden（不对外提供），
+    所以列表里只应有 watercolor —— 但黑白那份文件还在、也还能被显式指定（见下一个用例）。
+    """
     styles = {s["style_id"]: s for s in client.get("/api/v1/styles").json()}
-    assert "bw_lineart" in styles, "黑白线稿是线上正在用的风格，不能被删"
-    assert styles["bw_lineart"]["canvas"]["aspect_ratio"] == "3:2"
+    assert "watercolor" in styles
+    assert "bw_lineart" not in styles, "已隐藏的风格不该出现在对用户的列表里"
     assert all(s["canvas"]["aspect_ratio"] == "3:2" for s in styles.values())
 
 
@@ -202,7 +206,11 @@ def test_artwork_attempt_not_found(client: TestClient) -> None:
 
 
 def test_unknown_style_rejected(client: TestClient) -> None:
-    # 注意：别拿 watercolor 当"不存在的风格" —— 它 2026-09-24 起真的存在了
+    """请求里显式给了不存在的风格 → 报错，**不能悄悄换一个**。
+
+    注意：别拿 watercolor 当"不存在的风格"（它 2026-09-24 起真的存在了），
+    也别拿 bw_lineart（它存在、只是已隐藏 —— 隐藏≠禁用，显式指定仍然照办）。
+    """
     response = client.post("/api/v1/tasks", json={"query": "kd12", "style_id": "no_such_style"})
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "STYLE_NOT_FOUND"

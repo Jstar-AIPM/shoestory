@@ -163,6 +163,8 @@ export type ArchiveListItem = {
   shoe_id: string;
   model_name: string;
   artwork_url: string;
+  /** 这双鞋当初用哪个风格画的（新旧可能混着，卡片要按各自风格渲染） */
+  style_id: string;
   date_text: string | null;
   date_sort_key: string | null;
   created_at: string;

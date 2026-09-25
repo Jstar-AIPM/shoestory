@@ -173,7 +173,7 @@ export default function CabinetPage() {
           <h1 className="display-upper mt-2 text-[30px] text-white sm:text-[34px]">鞋历</h1>
           {/* slogan 已在顶栏出现一次，这里不再重复（2026-09-23 反馈） */}
           <p className="mt-2 max-w-[560px] text-[13.5px] leading-relaxed text-muted">
-            上传一张您那双鞋的照片，它会变成一张黑白线稿，收进您的鞋柜。
+            上传一张您那双鞋的照片，它会变成一张手绘水彩插画，收进您的鞋柜。
           </p>
           {!canGenerate ? (
             <div className="mt-6 max-w-[640px] rounded-[var(--radius-btn)] border border-warn/30 bg-warn/[0.08] px-4 py-3 text-[13px] leading-relaxed text-ink">
@@ -371,6 +371,7 @@ export default function CabinetPage() {
               shoeId: item.shoe_id,
               modelName: item.model_name,
               artworkUrl: item.artwork_url,
+              styleId: item.style_id,
               dateText: item.date_text,
             }))}
             onOpen={(shoeId) => setDetailShoeId(shoeId)}

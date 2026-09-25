@@ -22,6 +22,7 @@ import { ApiError } from "@/lib/api/client";
 import type { AppError } from "@/lib/api/errors";
 import type { ArchiveDetail } from "@/lib/api/types";
 import { track } from "@/lib/analytics";
+import { artworkFrameClass } from "@/lib/utils/artwork";
 
 type Mode = "view" | "edit" | "confirm-delete";
 
@@ -175,7 +176,7 @@ export function ShoeDetailDialog({
             <>
               {/* 画稿：手机可左右滑切换鞋款（与按钮、键盘三种方式并存） */}
               <div
-                className="artwork-paper mx-auto mt-3 w-full max-w-[560px] overflow-hidden rounded-[var(--radius-card)] border border-line"
+                className={`${artworkFrameClass(detail.style_id)} mx-auto mt-3 w-full max-w-[560px] overflow-hidden rounded-[var(--radius-card)] border border-line`}
                 onTouchStart={(event) => {
                   touchStartX.current = event.touches[0]?.clientX ?? null;
                 }}
@@ -191,7 +192,7 @@ export function ShoeDetailDialog({
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={detail.artwork_url}
-                  alt={`${detail.model_name} 的黑白线稿`}
+                  alt={`${detail.model_name} 的插画`}
                   className="frame-3x2"
                   style={{ objectFit: "contain" }}
                 />
