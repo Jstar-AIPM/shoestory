@@ -127,3 +127,35 @@ def test_legacy_record_without_visibility_keeps_old_conservative_behavior() -> N
 def test_invalid_visibility_is_treated_as_missing() -> None:
     plan = resolve_fill_plan(brand="Nike", logo_type="", logo_visibility="maybe")
     assert plan.forbid_logo is True
+
+
+# --------------------------------------------------------------------------- 视角/朝向/完整性（产品反馈 7/11/12）
+
+
+def test_side_view_and_facing_drive_the_new_decisions() -> None:
+    """新增三个字段各自对应一个产品决定，别让它们退化成"永远放行"。"""
+    from app.schemas.inspect import PhotoInspectOut
+
+    assert PhotoInspectOut(view="lateral").is_side_view is True
+    assert PhotoInspectOut(view="top").is_side_view is False
+    assert PhotoInspectOut(view="three_quarter").is_side_view is False
+    # 缺字段（老记录 / 模型没给）时放行 —— 不能因为一个新字段缺失就把原来能跑的流程卡死
+    assert PhotoInspectOut(view="").is_side_view is True
+
+    # 鞋头朝右 → 生成前翻转，保证鞋柜里统一朝左
+    assert PhotoInspectOut(facing="right").needs_mirror is True
+    assert PhotoInspectOut(facing="left").needs_mirror is False
+    assert PhotoInspectOut(facing="unknown").needs_mirror is False
+
+    # 被切掉鞋头/鞋跟 → 提示重新框选
+    assert PhotoInspectOut(complete=False).complete is False
+
+
+def test_vision_output_normalises_loose_values() -> None:
+    """模型偶尔会写中文或同义词，容错一下，别让整条链路因为一个词失配。"""
+    from app.schemas.inspect import PhotoInspectOut
+
+    assert PhotoInspectOut(view="侧面").view == "lateral"
+    assert PhotoInspectOut(view="俯视").view == "top"
+    assert PhotoInspectOut(facing="RIGHT").facing == "right"
+    assert PhotoInspectOut(view="胡说").view == ""

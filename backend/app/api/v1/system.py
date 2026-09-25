@@ -54,6 +54,18 @@ def health(request: Request, settings=Depends(get_settings)) -> dict:
     }
 
 
+@router.get("/emphasis-options")
+def list_emphasis_options() -> list[dict[str, str]]:
+    """「重新画」时可选的修正方向（产品反馈 10）。
+
+    来源是 `prompts/emphasis.yaml` 里 manual=true 的条目 —— **单一事实来源**：
+    界面上的按钮文案与注入提示词的强化句是同一条记录，不会各写一份后对不上。
+    """
+    from app.services.emphasis import manual_options
+
+    return manual_options()
+
+
 @router.get("/styles")
 def list_styles(request: Request) -> list[dict]:
     return get_container(request).styles.summaries()

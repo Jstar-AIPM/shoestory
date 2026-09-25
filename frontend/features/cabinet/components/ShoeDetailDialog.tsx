@@ -16,7 +16,6 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Dialog, DialogCloseButton, DialogContent, DialogTitle } from "@/components/ui/Dialog";
 import { Input, Textarea } from "@/components/ui/Input";
-import { StatusChip } from "@/components/ui/StatusChip";
 import { deleteArchive, getArchive, patchArchive } from "@/lib/api/archive";
 import { ApiError } from "@/lib/api/client";
 import type { AppError } from "@/lib/api/errors";
@@ -25,6 +24,12 @@ import { track } from "@/lib/analytics";
 import { artworkFrameClass } from "@/lib/utils/artwork";
 
 type Mode = "view" | "edit" | "confirm-delete";
+
+/** 下载用的文件名：型号可能带 `/`、`:` 等字符，替换掉避免浏览器乱码或截断 */
+function downloadName(modelName: string): string {
+  const safe = (modelName || "鞋历").replace(/[\\/:*?"<>|]/g, "-").trim() || "鞋历";
+  return `${safe}.png`;
+}
 
 export function ShoeDetailDialog({
   shoeId,
@@ -223,12 +228,9 @@ export function ShoeDetailDialog({
                     <DialogTitle id="shoe-detail-title" className="text-[20px] font-semibold text-ink">
                       {detail.model_name}
                     </DialogTitle>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <StatusChip tone="neutral">风格 {detail.style_id} v{detail.style_version}</StatusChip>
-                      {detail.quality?.score != null ? (
-                        <StatusChip tone="success">质检 {detail.quality.score}</StatusChip>
-                      ) : null}
-                    </div>
+                    {/* 2026-09-25 产品反馈 4：不再显示「风格 xxx v1」「质检 0.9535」这类内部标签 ——
+                        它们是给排查用的，对"这是不是我那双鞋"这件事没有帮助，反而像在自证。
+                        质检分仍然照常记录在档案里（详情接口里能拿到）。 */}
                     <p className="text-[13.5px] text-accent">
                       {detail.date_text || "未填时间"}
                     </p>
@@ -240,6 +242,15 @@ export function ShoeDetailDialog({
                     </p>
                   </div>
                   <div className="mt-5 flex flex-wrap gap-2">
+                    {/* 下载画稿（产品反馈 5）：同源地址 + download 属性即可，
+                        不需要后端额外开接口（画稿本来就是这个地址给的）。 */}
+                    <a
+                      href={detail.artwork_url}
+                      download={downloadName(detail.model_name)}
+                      className="inline-flex h-11 items-center justify-center rounded-[var(--radius-btn)] border border-line bg-surface px-5 text-[14px] font-medium text-ink transition-colors hover:border-ink/30"
+                    >
+                      下载画稿
+                    </a>
                     <Button
                       variant="secondary"
                       onClick={() => {

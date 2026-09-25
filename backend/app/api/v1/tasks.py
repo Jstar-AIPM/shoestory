@@ -42,6 +42,7 @@ from app.services.cv.imageio import (
     validate_image_bytes,
 )
 from app.services.providers.base import CallRecorder
+from app.services.emphasis import is_valid as emphasis_is_valid
 from app.services.storage.task_store import TERMINAL_STATES
 from app.services.tools.archive_shoe import archive_shoe
 from app.services.tools.resolve_model import resolve_model
@@ -396,12 +397,27 @@ def regenerate(
         container.settings, container.invite_store, owner_id
     )
 
-    transit(record, S.GENERATING, event="user_regenerate", detail={"note": payload.note or ""})
+    # 用户选的修正方向：只接受已知的键（**不能把任意字符串拼进提示词**）。
+    # 认不出来就当没选，不让一个拼错的 key 把这次重画变成一次无意义的烧钱。
+    emphasis = payload.emphasis.strip() if payload.emphasis else ""
+    if emphasis and not emphasis_is_valid(emphasis):
+        emphasis = ""
+    record.regenerate_emphasis = emphasis
+
+    transit(
+        record,
+        S.GENERATING,
+        event="user_regenerate",
+        detail={"note": payload.note or "", "emphasis": emphasis},
+    )
     record.progress = {"step": "generating", "label": "重新生成中", "percent": 45}
     container.task_store.save(record)
     # 轨迹原料：记录用户为什么要求重生成（PRD 4.7）
     TraceWriter(container.backend, owner_id, task_id).write(
-        "user_regenerate", note=payload.note or "", round=record.attempts.round + 1
+        "user_regenerate",
+        note=payload.note or "",
+        emphasis=emphasis,
+        round=record.attempts.round + 1,
     )
     _schedule(container, owner_id, task_id)
     record = container.task_store.get(owner_id, task_id)

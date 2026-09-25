@@ -12,6 +12,8 @@ import { Card } from "@/components/ui/Card";
 import { StatusBar } from "@/components/ui/StatusBar";
 import type { TaskOut } from "@/lib/api/types";
 import { artworkFrameClass } from "@/lib/utils/artwork";
+import { emphasisOptions } from "@/lib/api/tasks";
+import { useEffect, useState } from "react";
 
 export function EffectConfirm({
   task,
@@ -23,9 +25,23 @@ export function EffectConfirm({
   task: TaskOut;
   busy: boolean;
   onArchive: () => void;
-  onRegenerate: () => void;
+  onRegenerate: (emphasis?: string) => void;
   onReset: () => void;
 }) {
+  // 「不满意，重新画」先让人选一个方向（产品反馈 10）。
+  // 每次重画都花 1 次额度，让用户把"哪里不对"说清楚，比换个种子再抽一次有用得多。
+  // 选项来自后端 prompts/emphasis.yaml（与注入提示词的强化句是同一条记录）。
+  const [picking, setPicking] = useState(false);
+  const [options, setOptions] = useState<{ key: string; label: string }[]>([]);
+  const [picked, setPicked] = useState("");
+
+  useEffect(() => {
+    if (!picking || options.length > 0) return;
+    emphasisOptions()
+      .then(setOptions)
+      .catch(() => setOptions([])); // 拿不到选项就退回"普通重画"，不阻塞
+  }, [picking, options.length]);
+
   const quality = task.quality;
   const passed = quality.verdict === "pass" || (quality.score ?? 0) >= 0.8;
   const artworkSrc = task.current_artwork_url ?? "";
@@ -78,13 +94,69 @@ export function EffectConfirm({
           >
             满意，收进鞋柜
           </Button>
-          <Button variant="secondary" onClick={onRegenerate} disabled={busy || !task.can?.regenerate}>
+          <Button
+            variant="secondary"
+            onClick={() => setPicking((v) => !v)}
+            disabled={busy || !task.can?.regenerate}
+          >
             不满意，重新画
           </Button>
           <Button variant="ghost" onClick={onReset}>
             换一张图
           </Button>
         </div>
+
+        {picking ? (
+          <div className="mt-4 rounded-[var(--radius-card)] border border-line bg-black/[0.02] p-4">
+            <p className="text-[13.5px] font-medium text-ink">这次主要想改哪里？</p>
+            <p className="mt-1 text-[12.5px] leading-relaxed text-muted">
+              选一个方向，我这次会重点按它来画（不选也行，那就直接换一版）。
+              每次重画会重新消耗 1 次生成额度。
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {options.map((item) => {
+                const active = picked === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => setPicked(active ? "" : item.key)}
+                    className={
+                      "rounded-full border px-3.5 py-1.5 text-[13px] transition-colors " +
+                      (active
+                        ? "border-[#5865f2] bg-[#5865f2] text-white"
+                        : "border-line bg-surface text-ink hover:border-[#5865f2]/50")
+                    }
+                    aria-pressed={active}
+                  >
+                    {item.label}
+                  </button>
+                );
+              })}
+              {options.length === 0 ? (
+                <span className="text-[12.5px] text-faint">正在读取可选项…</span>
+              ) : null}
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button
+                variant="primary"
+                className="btn-blurple"
+                disabled={busy || !task.can?.regenerate}
+                onClick={() => {
+                  const chosen = picked;
+                  setPicking(false);
+                  setPicked("");
+                  onRegenerate(chosen || undefined);
+                }}
+              >
+                {picked ? "按这个方向重画" : "直接重画"}
+              </Button>
+              <Button variant="ghost" onClick={() => setPicking(false)} disabled={busy}>
+                取消
+              </Button>
+            </div>
+          </div>
+        ) : null}
 
         {history.length > 0 ? (
           <details className="mt-4">

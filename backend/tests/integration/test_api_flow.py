@@ -342,3 +342,29 @@ def test_archive_edit_is_reachable_by_post(client: TestClient) -> None:
     )
     assert patched.status_code == 200
     assert patched.json()["story"] == "再改一次"
+
+
+def test_emphasis_options_and_regenerate_accepts_one(client: TestClient) -> None:
+    """「重新画」的选项来自后端（单一事实来源），且只接受已知的键。
+
+    产品反馈 10：每次重画都花 1 次额度，所以让用户选一个"这次要改哪里"，
+    比换个随机种子再抽一次有用。选项文案与注入提示词的强化句必须是同一条记录，
+    否则界面写着"配色不对"、提示词里却是别的要求。
+    """
+    options = client.get("/api/v1/emphasis-options").json()
+    keys = {item["key"] for item in options}
+    assert len(options) >= 6
+    assert {"color", "shape", "detail"} <= keys
+    assert all(item["label"] for item in options)
+
+    task = run_to_artwork(client, "kd12")
+    response = client.post(
+        f"/api/v1/tasks/{task['task_id']}/regenerate", json={"emphasis": "color"}
+    )
+    assert response.status_code == 202
+
+    # 未知的键不能让这次重画变成一次无意义的烧钱；端点会当成"没选"处理
+    response = client.post(
+        f"/api/v1/tasks/{task['task_id']}/regenerate", json={"emphasis": "乱写的键"}
+    )
+    assert response.status_code == 202

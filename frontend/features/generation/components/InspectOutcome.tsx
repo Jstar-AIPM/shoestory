@@ -26,10 +26,21 @@ export function InspectOutcome({
   onReCrop: () => void;
   onReset: () => void;
 }) {
-  if (inspect.tier === "not_shoe") {
+  // 四档"先不画"：不是鞋 / 不止一只 / 角度不对 / 没框全。
+  // 后三档（2026-09-25 产品反馈 7/11/12）以前会被放行去画，结果画出来和实物对不上 ——
+  // 与其让人等 30 秒拿到一张不像的图，不如在这里就说清楚。
+  const BLOCKED: Record<string, { title: string; tone: "danger" | "warn" }> = {
+    not_shoe: { title: "这张先不画了", tone: "danger" },
+    multi: { title: "框里不止一只鞋", tone: "warn" },
+    not_side_view: { title: "这张角度不太合适", tone: "warn" },
+    incomplete: { title: "方框里没框住整只鞋", tone: "warn" },
+  };
+  const blocked = BLOCKED[inspect.tier];
+  if (blocked) {
+    const canRecrop = inspect.tier !== "not_shoe";
     return (
       <Card className="px-5 py-5 sm:px-6">
-        <Alert tone="danger" title="这张先不画了">
+        <Alert tone={blocked.tone} title={blocked.title}>
           <p className="mt-1">{inspect.message}</p>
           {inspect.hint ? <p className="mt-1.5 text-muted">{inspect.hint}</p> : null}
         </Alert>
@@ -37,7 +48,12 @@ export function InspectOutcome({
           <StatusBar tone="paper" label="这次没画（不算生成次数，也不用花钱）" meta="换一张就能重试" />
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
-          <Button variant="primary" className="btn-blurple" onClick={onReset}>
+          {canRecrop ? (
+            <Button variant="primary" className="btn-blurple" onClick={onReCrop}>
+              重新框选
+            </Button>
+          ) : null}
+          <Button variant={canRecrop ? "secondary" : "primary"} className={canRecrop ? "" : "btn-blurple"} onClick={onReset}>
             换一张图
           </Button>
         </div>
@@ -85,7 +101,15 @@ export function InspectOutcome({
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <Button variant="primary" className="btn-blurple" onClick={onStart} disabled={busy}>
+        {/* 「开始画」加一个很轻的呼吸缩放（产品反馈 9）：识别成功后视线本来在数据上，
+            按钮不动就容易被忽略。幅度刻意做小，不用彩虹色/弹跳那套。
+            prefers-reduced-motion 时会被全局规则关掉。 */}
+        <Button
+          variant="primary"
+          className="btn-blurple cta-pulse"
+          onClick={onStart}
+          disabled={busy}
+        >
           {busy ? "正在开始…" : "开始画"}
         </Button>
         <Button variant="secondary" onClick={onReCrop} disabled={busy}>
@@ -96,7 +120,7 @@ export function InspectOutcome({
         </Button>
       </div>
       <p className="mt-2.5 text-[12.5px] text-faint">
-        开始画会消耗 1 次生成额度，出图约 30 秒；Logo 会按识别结果填实。
+        开始画会消耗 1 次生成额度，出图约 30–60 秒。
       </p>
     </Card>
   );

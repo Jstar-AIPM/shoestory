@@ -32,6 +32,7 @@ REQUIRED_PROMPTS: tuple[str, ...] = (
     "inspect_photo.md",
     "verify_watercolor.md",
     "brand_marks.yaml",
+    "emphasis.yaml",
 )
 
 #: 已被读取且当时缺失的 Prompt（用于健康检查如实上报）

@@ -31,6 +31,7 @@ from app.services.storage.task_store import TERMINAL_STATES, TaskStore
 from app.services.style.loader import StyleTemplate
 from app.services.style.registry import StyleRegistry
 from app.services.cv.edges import extract_edge_map
+from app.services.cv.imageio import mirror_png
 from app.services.cv.text_stamp import TextStamp, build_text_stamp, composite_text_stamps
 from app.services.brand_marks import FillPlan, resolve_fill_plan
 from app.services.tools.generate_lineart import generate_lineart
@@ -207,8 +208,10 @@ class PipelineRunner:
         )
 
         max_attempts = max(1, self.settings.gen_max_attempts)
-        #: 定向重画：上一次没过时，按失败原因补不同的强化句（而不是把同一套提示词重跑一遍）
-        emphasis: str | None = None
+        #: 定向重画：第一枪优先用**用户选的方向**（手动"重新画"时选的），
+        #: 之后若还没过，再按质检判出来的失败原因覆盖它。
+        emphasis: str | None = record.regenerate_emphasis or None
+        record.regenerate_emphasis = ""  # 只对紧接着的这一次生成生效
         while record.attempts.used_in_round < max_attempts:
             record.attempts.used_in_round += 1
             record.attempts.total += 1
@@ -473,6 +476,17 @@ class PipelineRunner:
         source_bytes = self.asset_store.get_task_file(
             record.owner_id, record.task_id, SOURCE_FILENAME
         )
+        # 鞋头朝右的原图先左右翻转（产品反馈 7：鞋柜里统一鞋头朝左）。
+        #
+        # 为什么在**生成前**翻，而不是等生成完再翻成品（用户最初的建议）：
+        # ① 下游全部自洽 —— 骨架参考图、文案兜底贴片的坐标、以及轮廓一致性指标
+        #    用的都是"原鞋掩膜"，如果只翻成品，这些地方都要再各自翻一次，漏一处就静默错位；
+        # ② 草稿预览不会"翻面" —— 生成前翻，草稿与正式稿方向一致；
+        # ③ 鞋身文字更有救 —— 把翻过的图当参考，模型多半仍会写出正向的字；
+        #    而把成品翻面，字必然是反的。
+        mirrored = bool(record.inspect and record.inspect.mirror)
+        if mirrored:
+            source_bytes = mirror_png(source_bytes)
         cutout, segment_meta = segment_shoe(source_bytes)
         self.asset_store.put_task_file(record.owner_id, record.task_id, CUTOUT_FILENAME, cutout)
 
@@ -488,7 +502,9 @@ class PipelineRunner:
         record.source.source_path = canvas_key
 
         # 文字兜底贴片：从原图裁出文字区域（决策记录九.⑧）—— 失败不致命，静默跳过
-        record.text_stamps = self._build_text_stamps(record, source_bytes, canvas, normalize_meta)
+        record.text_stamps = self._build_text_stamps(
+            record, source_bytes, canvas, normalize_meta, mirror=mirrored
+        )
 
         structure_key: str | None = None
         if self.settings.enable_structure_reference:
@@ -506,6 +522,7 @@ class PipelineRunner:
 
         trace.write(
             "preprocess",
+            mirrored=mirrored,
             segment=segment_meta,
             normalize=normalize_meta,
             edge=edge_meta,
@@ -525,8 +542,14 @@ class PipelineRunner:
         source_bytes: bytes,
         canvas: bytes,
         normalize_meta: dict,
+        *,
+        mirror: bool = False,
     ) -> list[dict]:
-        """把体检给的文字归一化 bbox 映射到画布坐标，并从画布裁出二值文字贴片。"""
+        """把体检给的文字归一化 bbox 映射到画布坐标，并从画布裁出二值文字贴片。
+
+        ``mirror=True`` 时，盒子横向坐标要先翻一次（`x' = 1 - x - w`）——
+        画布已经左右翻转过了，盒子不翻就会把文字贴到镜像后的另一边。
+        """
         if not record.inspect or not record.inspect.text_stamps:
             return []
         bbox = normalize_meta.get("subject_bbox")
@@ -543,9 +566,13 @@ class PipelineRunner:
         for index, item in enumerate(record.inspect.text_stamps):
             if item.box is None or not item.text:
                 continue
+            box_norm = item.box
+            if mirror:
+                bx, by, bw, bh = item.box
+                box_norm = (max(0.0, 1.0 - bx - bw), by, bw, bh)
             stamp = build_text_stamp(
                 canvas_rgb,
-                box_norm=item.box,
+                box_norm=box_norm,
                 cropped_size=cropped_size,
                 subject_bbox=tuple(bbox),
                 scale=float(scale),

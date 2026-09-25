@@ -27,10 +27,10 @@ import { CropConfirm } from "@/features/generation/components/CropConfirm";
 import { EffectConfirm } from "@/features/generation/components/EffectConfirm";
 import { GenerationProgress } from "@/features/generation/components/GenerationProgress";
 import { InspectOutcome } from "@/features/generation/components/InspectOutcome";
-import { ModelInput } from "@/features/generation/components/ModelInput";
 import { ResolveFeedback } from "@/features/generation/components/ResolveFeedback";
 import { SourceConfirm } from "@/features/generation/components/SourceConfirm";
 import { UploadEntry } from "@/features/generation/components/UploadEntry";
+import { UploadExamples } from "@/features/generation/components/UploadExamples";
 import { useTaskFlow } from "@/features/generation/hooks/useTaskFlow";
 import { useUploadFlow } from "@/features/generation/hooks/useUploadFlow";
 import { logout as logoutApi, me as fetchMe } from "@/lib/api/auth";
@@ -169,8 +169,15 @@ export default function CabinetPage() {
 
         {/* 首屏要在一屏内露出「上传入口 + 我的鞋柜标题」：Hero 收紧（标题变小、间距变紧、文案压到两行） */}
         <PageShell className="!pt-6 !pb-8 sm:!pt-8 sm:!pb-10">
-          <p className="display-upper text-[12.5px] text-accent">MY SHOE CABINET</p>
-          <h1 className="display-upper mt-2 text-[30px] text-white sm:text-[34px]">鞋历</h1>
+          {/* 中英锁定：中文是主名（大、粗），英文紧随其后（小一号、宽字距、弱一档颜色）。
+              这是中文品牌做英文副名的常规排法 —— 两者共处一行，读起来是一个标识而不是两行字。 */}
+          <h1 className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span className="display-upper text-[30px] text-white sm:text-[34px]">鞋历</span>
+            <span className="text-[15px] font-semibold uppercase tracking-[0.28em] text-white/55 sm:text-[17px]">
+              Shoestory
+            </span>
+          </h1>
+          <p className="display-upper mt-1.5 text-[12px] tracking-[0.2em] text-accent">MY SHOE CABINET</p>
           {/* slogan 已在顶栏出现一次，这里不再重复（2026-09-23 反馈） */}
           <p className="mt-2 max-w-[560px] text-[13.5px] leading-relaxed text-muted">
             上传一张您那双鞋的照片，它会变成一张手绘水彩插画，收进您的鞋柜。
@@ -181,31 +188,23 @@ export default function CabinetPage() {
               已归档的鞋柜仍可正常查看、编辑与删除。
             </div>
           ) : null}
-          <div className="mt-6 max-w-[640px]">
-            {upload.phase === "empty" ? (
-              <>
-                <UploadEntry
-                  disabled={ui === "running" || ui === "waiting_user" || !canGenerate}
-                  onFiles={(files) => upload.acceptFiles(files)}
-                />
-                <details className="mt-3">
-                  <summary className="cursor-pointer select-none text-[12.5px] text-faint transition-colors hover:text-muted">
-                    没有清晰图？按型号生成（老方式）
-                  </summary>
-                  <div className="mt-3">
-                    <ModelInput
-                      submitting={flow.submitting}
-                      disabled={ui === "running" || ui === "waiting_user" || !canGenerate}
-                      onSubmit={(query) => {
-                        track("generation_submitted", { query_len: query.length });
-                        void flow.submit(query);
-                      }}
-                    />
-                  </div>
-                </details>
-              </>
-            ) : null}
-          </div>
+          {upload.phase === "empty" ? (
+            <div className="mt-6">
+              {/* 左：上传入口；右：标准角度示例（产品反馈 8）—— 让人先知道"什么样的图能出好效果"，
+                  比一句文字说明有用得多。
+                  "按型号生成（老方式）"入口已下线（产品反馈 6）：只保留上传图这一条路，
+                  少一条路就少一种"结果为什么不一样"的解释成本。 */}
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
+                <div className="min-w-0 flex-1">
+                  <UploadEntry
+                    disabled={ui === "running" || ui === "waiting_user" || !canGenerate}
+                    onFiles={(files) => upload.acceptFiles(files)}
+                  />
+                </div>
+                <UploadExamples className="lg:w-[46%] lg:shrink-0" />
+              </div>
+            </div>
+          ) : null}
           {flow.restoring ? (
             <p className="mt-3 text-[12.5px] text-faint">正在恢复上次的进度…</p>
           ) : null}
@@ -299,9 +298,12 @@ export default function CabinetPage() {
                   task={task}
                   busy={flow.busy}
                   onArchive={() => setArchiving(true)}
-                  onRegenerate={() => {
-                    track("regenerated");
-                    void flow.regenerate("用户点重新生成");
+                  onRegenerate={(emphasis) => {
+                    track("regenerated", { emphasis: emphasis ?? "" });
+                    void flow.regenerate({
+                      note: "用户点重新生成",
+                      emphasis: emphasis ?? "",
+                    });
                   }}
                   onReset={() => void flow.cancel()}
                 />
@@ -346,7 +348,7 @@ export default function CabinetPage() {
                   </p>
                   <div className="mt-4 flex flex-wrap gap-2">
                     <button
-                      onClick={() => void flow.regenerate("从暂停/失败状态继续")}
+                      onClick={() => void flow.regenerate({ note: "从暂停/失败状态继续" })}
                       disabled={flow.busy}
                       className="btn-snow h-11 rounded-full border px-6 text-[14px] font-semibold disabled:opacity-50"
                     >

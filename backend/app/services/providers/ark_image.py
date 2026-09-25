@@ -85,33 +85,9 @@ def _draw_hints_suffix(
     return "".join(parts)
 
 
-#: 定向重画的强化句：第一次没过时，**按失败原因**补不同的话。
-#: 为什么不能一律重跑同一套提示词：实测 AF1 两次生成一次勾填了、一次没填，
-#: 只是碰运气；而同一个矛盾（提示词说"极克制"又要求"必须填实"）不解决，
-#: 重画几次都是同一个错，白花钱。
-EMPHASIS_UNDERFILLED = (
-    "\n【本次重点修正】上一版画得太轻：整张画稿几乎只有线条，**一块实色都没有**。"
-    "这一版必须把品牌标志性图形（钩形/飞人/三道杠/交叉条纹）用纯黑实心填出来 ——"
-    "**同色系的标识也要填**；\n"
-    "但**不要在鞋头、前掌、鞋面、中底上额外加黑块** —— 上一个版本的毛病正是这个。"
-)
-EMPHASIS_OVERFILLED = (
-    "\n【本次重点修正】上一版**涂得太黑了**：鞋头/中底/鞋面被实心黑块盖住，画面被压死了。"
-    "这一版只保留一处必要的实色块 —— 品牌标志性图形；"
-    "鞋头、前掌、鞋面、中底、鞋底全部回到线描，"
-    "**浅色或彩色的部位一律不得涂黑**。"
-)
-EMPHASIS_SILHOUETTE = (
-    "\n【本次重点修正】上一版的鞋型与原鞋不符：外轮廓有缺失或走形。"
-    "这一版必须严格按第 2 张骨架图**逐段描摹外轮廓**，一段都不能省 ——"
-    "尤其是鞋头与前掌那段（原鞋是浅色也要画出来，它与白底的区别就看这条线）；"
-    "不得改变鞋型、不得增删部件、不得把鞋子画成局部特写。"
-)
-EMPHASIS = {
-    "underfilled": EMPHASIS_UNDERFILLED,
-    "overfilled": EMPHASIS_OVERFILLED,
-    "silhouette": EMPHASIS_SILHOUETTE,
-}
+#: 定向重画的强化句全部放在 `prompts/emphasis.yaml`（提示词是资产，改它不该动代码）。
+#: 键的含义与用法见 `services/emphasis.py`。
+from app.services.emphasis import emphasis_text  # noqa: E402
 
 
 class ArkLineartGenerator:
@@ -149,8 +125,7 @@ class ArkLineartGenerator:
         positive += _draw_hints_suffix(
             logo_fill, shoe_texts, avoid_logo=avoid_logo, partial_logo=partial_logo
         )
-        if emphasis in EMPHASIS:
-            positive += EMPHASIS[emphasis]
+        positive += emphasis_text(emphasis)
         if canvas_png is None:
             positive += (
                 "\n【本次没有参考照片】请依据你对这款鞋的了解，画出它的正侧面线稿，"

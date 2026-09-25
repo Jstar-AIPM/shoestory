@@ -115,6 +115,12 @@ class PhotoInspectOut(BaseModel):
     brand: str = Field(default="", max_length=40)
     model_name: str = Field(default="", max_length=80)
     colorway: str = Field(default="", max_length=40)
+    #: 拍摄视角：lateral（正侧面，唯一能画的）/ three_quarter / top / other；空串 = 老记录
+    view: str = Field(default="", max_length=20)
+    #: 鞋头朝向：left / right / unknown；空串 = 老记录
+    facing: str = Field(default="", max_length=10)
+    #: 整只鞋是否都在画面里（被切掉鞋头或鞋跟时为 False）
+    complete: bool = True
     logo: LogoInfo = Field(default_factory=LogoInfo)
     texts: list[ShoeText] = Field(default_factory=list, max_length=8)
     notes: str = Field(default="", max_length=200)
@@ -123,6 +129,26 @@ class PhotoInspectOut(BaseModel):
     @classmethod
     def _clean_text(cls, value: Any) -> str:
         return "" if value is None else str(value).strip()
+
+    @field_validator("view", mode="before")
+    @classmethod
+    def _clean_view(cls, value: Any) -> str:
+        text = "" if value is None else str(value).strip().lower()
+        aliases = {
+            "side": "lateral", "profile": "lateral", "正侧面": "lateral", "侧面": "lateral",
+            "3/4": "three_quarter", "three-quarter": "three_quarter", "斜侧": "three_quarter",
+            "top": "top", "topdown": "top", "俯视": "top", "bird": "top",
+        }
+        text = aliases.get(text, text)
+        return text if text in {"lateral", "three_quarter", "top", "other"} else ""
+
+    @field_validator("facing", mode="before")
+    @classmethod
+    def _clean_facing(cls, value: Any) -> str:
+        text = "" if value is None else str(value).strip().lower()
+        aliases = {"左": "left", "right_side": "right", "右": "left" if False else "right"}
+        text = aliases.get(text, text)
+        return text if text in {"left", "right", "unknown"} else ""
 
     @field_validator("logo", mode="before")
     @classmethod
@@ -142,6 +168,17 @@ class PhotoInspectOut(BaseModel):
         if not self.is_shoe and self.confidence >= UNCERTAIN_CONFIDENCE:
             return "not_shoe"
         return "uncertain"
+
+    @property
+    def is_side_view(self) -> bool:
+        """是不是正侧面。**空串（老记录/模型没给）一律当作可以画** —— 宁可放行让人自己判断，
+        也不要因为一个新字段缺失就把原来能跑的流程卡住。"""
+        return self.view in ("", "lateral")
+
+    @property
+    def needs_mirror(self) -> bool:
+        """鞋头朝右 → 生成后镜像一次，保证鞋柜里每双都朝左（产品反馈 7）。"""
+        return self.facing == "right"
 
     @property
     def display_name(self) -> str:

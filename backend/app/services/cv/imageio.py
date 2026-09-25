@@ -5,7 +5,7 @@ from __future__ import annotations
 import io
 from typing import Any
 
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 from app.core.errors import AppError, ErrorCode
 
@@ -165,3 +165,9 @@ def prepare_for_vision(data: bytes, *, max_edge: int = 1024, quality: int = 85) 
     buffer = io.BytesIO()
     img.save(buffer, format="JPEG", quality=quality, optimize=True)
     return buffer.getvalue()
+
+
+def mirror_png(data: bytes) -> bytes:
+    """水平镜像（左右翻转）。用于把"鞋头朝右"的原图摆成鞋头朝左（产品反馈 7）。"""
+    with Image.open(io.BytesIO(data)) as img:
+        return encode_png(ImageOps.mirror(img.convert("RGBA") if img.mode == "RGBA" else img.convert("RGB")))

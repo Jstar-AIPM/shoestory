@@ -229,7 +229,8 @@ def test_text_fallback_composites_when_text_illegible(api: TestClient, monkeypat
     monkeypatch.setattr(container.providers.judge, "judge", low_text_judge)
 
     # ② 让「裁贴片」确定性产出一块 30x20 的全黑贴片（放在画布左上角）
-    def fake_build(record, source_bytes, canvas, normalize_meta):  # noqa: ANN001
+    # 签名要与 runner._build_text_stamps 一致（它新增了 mirror 关键字参数）
+    def fake_build(record, source_bytes, canvas, normalize_meta, *, mirror=False):  # noqa: ANN001
         stamp = np.zeros((20, 30), np.uint8)
         png = encode_png(Image.fromarray(stamp, mode="L"))
         runner.asset_store.put_task_file(record.owner_id, record.task_id, "text_stamp_0.png", png)

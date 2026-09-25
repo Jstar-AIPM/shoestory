@@ -229,6 +229,27 @@ body {
   background-color: #faf6f0;
 }
 
+/* 「开始画」的呼吸式缩放：很轻（1 → 1.035），只为把视线拉过来。
+   幅度再大就会显得廉价；配一层同色柔光替掉"抖动"。 */
+@keyframes cta-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(88, 101, 242, 0.35);
+  }
+  50% {
+    transform: scale(1.035);
+    box-shadow: 0 0 0 10px rgba(88, 101, 242, 0);
+  }
+}
+.cta-pulse {
+  animation: cta-breathe 2.2s ease-in-out infinite;
+  will-change: transform;
+}
+.cta-pulse:disabled {
+  animation: none;
+}
+
 /* 扫过式揭示：从左到右揭示草稿（移动遮罩 + 一道扫光） */
 @keyframes sweep-reveal {
   from { clip-path: inset(0 100% 0 0); }

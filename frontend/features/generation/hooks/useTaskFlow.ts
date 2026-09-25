@@ -136,12 +136,12 @@ export function useTaskFlow(onArchived?: (shoeId: string) => void, options: { en
   );
 
   const regenerate = useCallback(
-    async (note?: string) => {
+    async (payload: { note?: string; emphasis?: string } = {}) => {
       if (!taskId) return;
       setBusy(true);
       setError(null);
       try {
-        await regenerateTask(taskId, note);
+        await regenerateTask(taskId, payload);
         setTask(await getTask(taskId));
       } catch (cause) {
         applyError(cause);

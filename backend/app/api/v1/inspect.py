@@ -104,6 +104,11 @@ def _to_out(result: InspectResult, *, upscale: float = 1.0) -> InspectOut:
             "logo_type": result.logo_type,
             "logo_position": vision.logo.position if vision and vision.logo.usable else "",
             "logo_visibility": vision.logo.visibility if vision else "",
+            "view": vision.view if vision else "",
+            "facing": vision.facing if vision else "",
+            "complete": vision.complete if vision else True,
+            # 鞋头朝右 → 生成后镜像一次（前端原样回传，不在前端做判断）
+            "needs_mirror": result.needs_mirror,
             "logo_fill_required": vision.logo.fill_required if vision else True,
             "texts": result.texts,
             "text_stamps": [

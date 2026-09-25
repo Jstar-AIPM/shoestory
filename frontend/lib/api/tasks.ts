@@ -20,9 +20,14 @@ export function selectSource(
 
 export function regenerateTask(
   taskId: string,
-  note?: string,
+  payload: { note?: string; emphasis?: string } = {},
 ): Promise<{ task_id: string; state: string; message: string }> {
-  return request(`/tasks/${taskId}/regenerate`, { method: "POST", body: { note } });
+  // emphasis = 用户选的"这次要修正什么"（keys 见后端 prompts/emphasis.yaml）。
+  // 不传就是普通重画（只换随机种子）。
+  return request(`/tasks/${taskId}/regenerate`, {
+    method: "POST",
+    body: { note: payload.note, emphasis: payload.emphasis ?? "" },
+  });
 }
 
 export function cancelTask(taskId: string): Promise<{ task_id: string; state: string; message: string }> {
@@ -39,6 +44,11 @@ export function archiveTask(
   },
 ): Promise<{ shoe_id: string; artwork_url: string; date_sort_key: string | null; created_at: string }> {
   return request(`/tasks/${taskId}/archive`, { method: "POST", body: payload });
+}
+
+/** 「重新画」时可选的修正方向（来源：后端 prompts/emphasis.yaml，单一事实来源） */
+export function emphasisOptions(): Promise<{ key: string; label: string }[]> {
+  return request<{ key: string; label: string }[]>(`/emphasis-options`);
 }
 
 export function parseDateText(text: string): Promise<DateParseResponse> {

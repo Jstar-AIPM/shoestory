@@ -31,6 +31,10 @@ TIER_OK = "ok"
 TIER_NOT_SHOE = "not_shoe"
 TIER_MULTI = "multi"
 TIER_UNCERTAIN = "uncertain"
+#: 不是正侧面（俯视/斜侧/透视）—— 画出来没法保证与实物一致，也破坏鞋柜的整齐
+TIER_NOT_SIDE_VIEW = "not_side_view"
+#: 框选范围内没包住整只鞋（鞋头或鞋跟被切掉）
+TIER_INCOMPLETE = "incomplete"
 
 
 @dataclass
@@ -51,6 +55,11 @@ class InspectResult:
     def ok(self) -> bool:
         """是否允许进入生成（不确定也放行）。"""
         return self.tier in {TIER_OK, TIER_UNCERTAIN}
+
+    @property
+    def needs_mirror(self) -> bool:
+        """鞋头朝右 → 生成后镜像一次（产品反馈 7：鞋柜里统一鞋头朝左）。"""
+        return bool(self.vision and self.vision.needs_mirror)
 
     @property
     def display_name(self) -> str:
@@ -176,14 +185,35 @@ def inspect_upload(
         result.hint = "如果结果不对，换一张更清晰的侧面图会好很多。"
         return result
 
-    # 明确是鞋
+    # ---- 以下都是"认出来是鞋了，但这张图不适合画"的情况 ----
+    # 顺序按"用户改起来最容易"排：多只 → 视角 → 完整性。
+    # 三段的文案都刻意说清"为什么"和"怎么改"，而不是只说不行（2026-09-25 产品反馈 7/11/12）。
+
+    if vision.shoe_count > 1:
+        result.tier = TIER_MULTI
+        result.message = f"这个框里像是还有 {vision.shoe_count} 只鞋，我分不清要画哪一双。"
+        result.hint = "目前只支持单只鞋的正侧面。把方框收一收，只框住您要的那一只。"
+        return result
+
+    if not vision.is_side_view:
+        result.tier = TIER_NOT_SIDE_VIEW
+        result.message = "这张不是正侧面的照片，我画出来可能和您那双对不上。"
+        result.hint = (
+            "为了鞋柜里每一双都整齐一致，目前只画**正侧面的单只鞋**。"
+            "换一张正侧面的照片，或者把方框收在侧面那一只上再试一次。"
+        )
+        return result
+
+    if not vision.complete:
+        result.tier = TIER_INCOMPLETE
+        result.message = "方框里没有框进整只鞋 —— 鞋头或鞋跟被切掉了。"
+        result.hint = "把方框拉到能完整包住这双鞋（四周再稍微留一点空），然后点确认就好。"
+        return result
+
+    # 明确是鞋、且这张图适合画
     named = vision.display_name
     result.message = f"认出来了：{named}。" if named else "已经认出这双鞋，可以开始画了。"
     result.hint = "您确认没问题就点「开始画」；也可以重新上传换一张图。"
-    if vision.shoe_count > 1:
-        result.tier = TIER_MULTI
-        result.message = f"这个框里像是还有 {vision.shoe_count} 只鞋。"
-        result.hint = "再收一收方框，只留下您要的那一双。"
     return result
 
 

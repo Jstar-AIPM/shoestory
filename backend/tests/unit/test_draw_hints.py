@@ -100,8 +100,27 @@ def test_avoid_logo_wins_when_no_mark_visible() -> None:
 
 
 def test_emphasis_sentences_are_reason_specific() -> None:
-    """定向重画：不同失败原因补不同的话，不能一律重跑同一套提示词。"""
-    from app.services.providers.ark_image import EMPHASIS
+    """定向重画：不同失败原因补不同的话，不能一律重跑同一套提示词。
 
-    assert "一块实色都没有" in EMPHASIS["underfilled"]
-    assert "外轮廓" in EMPHASIS["silhouette"]
+    强化句 2026-09-25 起放在 `prompts/emphasis.yaml`（提示词是资产，改它不该动代码）。
+    """
+    from app.services.emphasis import emphasis_text
+
+    assert "一块实色都没有" in emphasis_text("underfilled")
+    assert "外轮廓" in emphasis_text("silhouette")
+
+
+def test_manual_emphasis_options_cover_several_dimensions() -> None:
+    """给用户的选项要覆盖不同维度（配色/鞋型/细节/笔触/干净度/明暗两个方向）。
+
+    产品反馈 10：每次重画都花 1 次额度，所以要让用户把方向说清楚；
+    且刻意**不给"其他"自由输入** —— 自由文本容易被写成"不好看"，对模型没有信息量。
+    """
+    from app.services.emphasis import manual_options
+
+    options = manual_options()
+    keys = {item["key"] for item in options}
+    assert {"color", "shape", "detail", "painterly", "clean", "lighter", "denser"} <= keys
+    assert len(options) >= 6
+    assert all(item["label"] for item in options), "每个选项都要有中文标签"
+    assert not any("其他" in item["label"] for item in options), "产品明确不要'其他'"

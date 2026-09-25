@@ -39,8 +39,13 @@ export function TopBar({
     <header className="sticky top-0 z-20 border-b border-line bg-paper/95 backdrop-blur-sm">
       <PageShell className="!py-3.5">
         <div className="flex flex-wrap items-center justify-between gap-3">
+          {/* 品牌：顶栏只放英文小字标识，中文名「鞋历」留在首屏（2026-09-25 反馈 1：
+              两个「鞋历」上下重复）。全大写 + 拉开字距是英文标识的常规做法，
+              小字号下比中文粗体更"安静"，不会和首屏大标题抢视觉。 */}
           <div className="flex items-baseline gap-3">
-            <span className="text-[22px] font-extrabold tracking-wide text-white">鞋历</span>
+            <span className="text-[13px] font-semibold uppercase tracking-[0.22em] text-white">
+              Shoestory
+            </span>
             <span className="hidden text-[12.5px] text-muted md:inline">收藏的不只是球鞋，是走过的日子</span>
           </div>
 

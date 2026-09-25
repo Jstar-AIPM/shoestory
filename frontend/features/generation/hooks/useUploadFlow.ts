@@ -138,6 +138,8 @@ export function useUploadFlow(onStart?: (payload: UploadTaskPayload) => Promise<
           logo_position: inspect.detail.logo_position,
           logo_visibility: inspect.detail.logo_visibility,
           logo_fill_required: inspect.detail.logo_fill_required,
+          mirror: inspect.detail.needs_mirror,
+          view: inspect.detail.view,
           texts: inspect.detail.texts,
           text_stamps: inspect.detail.text_stamps ?? [],
           shoe_count: inspect.detail.shoe_count,

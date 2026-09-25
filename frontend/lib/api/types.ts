@@ -33,6 +33,14 @@ export type InspectResponse = {
     /** full / partial / none —— 这张照片里形状看不看得见（与颜色对比无关） */
     logo_visibility: string;
     logo_fill_required: boolean;
+    /** 拍摄视角：lateral / three_quarter / top / other */
+    view: string;
+    /** 鞋头朝向：left / right / unknown */
+    facing: string;
+    /** 整只鞋是否都在画面里（被切掉鞋头或鞋跟时为 false） */
+    complete: boolean;
+    /** 鞋头朝右 → 生成前会把原图左右翻转，保证鞋柜统一鞋头朝左 */
+    needs_mirror: boolean;
     texts: string[];
     text_stamps: TextStamp[];
     shoe_count: number;
@@ -54,6 +62,10 @@ export type UploadTaskPayload = {
     /** full / partial / none —— 这张照片里形状看不看得见（与颜色对比无关） */
     logo_visibility: string;
     logo_fill_required: boolean;
+    /** 拍摄视角，仅作记录 */
+    view: string;
+    /** 鞋头朝右时置 true：后端在预处理阶段翻转原图（前端不做判断，只回传） */
+    mirror: boolean;
     texts: string[];
     text_stamps: TextStamp[];
     shoe_count: number;

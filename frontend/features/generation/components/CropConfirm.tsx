@@ -19,7 +19,6 @@ const HANDLE_SIZE = 28; // 热区（px），视觉上画小一点
 /** 舞台高度上限（视口占比）：竖图不能把页面撑成 1300px 高 */
 const STAGE_VH_MOBILE = 0.45;
 const STAGE_VH_DESKTOP = 0.5;
-const STAGE_VH_ZOOMED = 0.88;
 const CORNERS = ["tl", "tr", "bl", "br"] as const;
 type Corner = (typeof CORNERS)[number];
 
@@ -52,7 +51,6 @@ export function CropConfirm({
   const stageRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
   const [display, setDisplay] = useState({ width: 0, height: 0 });
-  const [zoomed, setZoomed] = useState(false);
   const [stageWidth, setStageWidth] = useState<number | null>(null);
 
   /**
@@ -67,11 +65,7 @@ export function CropConfirm({
       const available = stage.clientWidth || stage.parentElement?.clientWidth || 0;
       if (!available) return;
       const ratio = Math.max(0.2, imageWidth / Math.max(1, imageHeight));
-      const maxVh = zoomed
-        ? STAGE_VH_ZOOMED
-        : window.innerWidth < 640
-          ? STAGE_VH_MOBILE
-          : STAGE_VH_DESKTOP;
+      const maxVh = window.innerWidth < 640 ? STAGE_VH_MOBILE : STAGE_VH_DESKTOP;
       const maxHeight = window.innerHeight * maxVh;
       setStageWidth(Math.max(140, Math.round(Math.min(available, maxHeight * ratio))));
     };
@@ -83,7 +77,7 @@ export function CropConfirm({
       ro.disconnect();
       window.removeEventListener("resize", compute);
     };
-  }, [imageWidth, imageHeight, zoomed]);
+  }, [imageWidth, imageHeight]);
 
   // 图片按容器宽度等比缩放，这里量出实际显示尺寸用于坐标换算
   useEffect(() => {
@@ -229,8 +223,10 @@ export function CropConfirm({
                 top: rect.top,
                 width: rect.width,
                 height: rect.height,
-                outline: "2px solid #ffffff",
-                boxShadow: "0 0 0 1px rgba(17,17,17,0.35)",
+                // 蓝色主框（原来是白色 —— 浅色鞋图/白底上完全看不见）；
+                // 外面再垫一圈极淡白晕，深色背景上也能看清边界。
+                outline: "2px solid #5865f2",
+                boxShadow: "0 0 0 1px rgba(255,255,255,0.9), 0 0 0 2.5px rgba(17,17,17,0.28)",
               }}
               onPointerDown={(e) => startDrag(e, "move")}
               role="group"
@@ -273,9 +269,6 @@ export function CropConfirm({
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <Button variant="primary" className="btn-blurple" onClick={onConfirm} disabled={busy}>
           {busy ? "正在识别…" : "确认框选"}
-        </Button>
-        <Button variant="ghost" onClick={() => setZoomed((v) => !v)}>
-          {zoomed ? "缩小看全图" : "放大看细节"}
         </Button>
         <Button variant="ghost" onClick={onReset} disabled={busy}>
           换一张

@@ -124,6 +124,11 @@ class InspectHints(BaseModel):
     #: full / partial / none —— 这张照片里形状看不看得见（与颜色对比无关）。
     #: 空串表示老记录没有这个字段，此时退回原来的启发式（见 services/brand_marks.py）
     logo_visibility: str = Field(default="", max_length=10)
+    #: 鞋头朝右 → 预处理阶段把原图左右翻转，保证鞋柜里每双都朝左（产品反馈 7）。
+    #: 由 `/inspect` 判定后原样回传，前端不做这个判断。
+    mirror: bool = False
+    #: 拍摄视角（lateral / three_quarter / top / other）—— 只作记录与排查用
+    view: str = Field(default="", max_length=20)
     logo_fill_required: bool = True
     texts: list[str] = Field(default_factory=list, max_length=8)
     #: 带定位信息的文字（box 相对体检裁切图）—— 文字兜底贴合用
@@ -185,6 +190,9 @@ class RegenerateIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     note: str | None = Field(default=None, max_length=200)
+    #: 用户选的"这次重画要修正什么"（对应 prompts/emphasis.yaml 里 manual=true 的键）。
+    #: 留空 = 普通重画（只换随机种子）。见 services/emphasis.py。
+    emphasis: str = Field(default="", max_length=40)
 
 
 class ArchiveIn(BaseModel):
@@ -301,6 +309,8 @@ class TaskRecord(BaseModel):
     updated_at: str
     style_id: str = "bw_lineart"
     query: str = ""
+    #: 用户点了「重新画」时选的修正方向（仅对紧接着的那一次生成生效，用完即清）
+    regenerate_emphasis: str = ""
     resolve: ResolveInfo = Field(default_factory=ResolveInfo)
     source: SourceInfo = Field(default_factory=SourceInfo)
     artworks: list[ArtworkCandidate] = Field(default_factory=list)
