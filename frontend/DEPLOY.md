@@ -3,7 +3,7 @@
 ```bash
 cd frontend
 vefaas deploy --yes \
-  --buildCommand "BACKEND_URL=https://s0elk3ogikiojvt96erdp.apigateway-cn-beijing.volceapi.com npm run build && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public" \
+  --buildCommand "BACKEND_URL=<后端地址> npm run build && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public" \
   --outputPath .next/standalone
 ```
 
@@ -21,7 +21,7 @@ Next 的 standalone 输出**只带 server 代码**，静态资源不会自动进
 部署后自检（30 秒）：
 
 ```bash
-BASE=https://sf7d7f90oeokpqnk7mllk.apigateway-cn-beijing.volceapi.com
+BASE=<入口地址>
 curl -s -o /dev/null -w "首页 %{http_code}\n" "$BASE/"
 curl -s -o /dev/null -w "静态图 %{http_code}\n" "$BASE/examples/example-1.png"   # 应该是 200
 curl -s "$BASE/api/v1/health" | python3 -m json.tool | grep -E 'status|missing_prompts'

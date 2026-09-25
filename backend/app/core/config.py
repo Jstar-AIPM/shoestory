@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     app_port: int = 8787
     app_log_level: str = "INFO"
     data_dir: str = "./data"
-    version: str = "0.2.0-v2"
+    version: str = "0.3.0-watercolor"  # 2026-09-25：主风格由黑白线稿切换为水彩
 
     # ---------- 存储 ----------
     storage_provider: Literal["local", "s3"] = "local"
