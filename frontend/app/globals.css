@@ -243,7 +243,10 @@ body {
   }
 }
 .cta-pulse {
-  animation: cta-breathe 2.2s ease-in-out infinite;
+  /* ⚠️ 只跳 3 次就停，**不要写 infinite**（2026-09-25 自测发现）：
+     ① 永远脉动的按钮很烦 —— 它的作用只是"把视线拉过来"，拉到就够了；
+     ② 无限动画会让自动化测试判定"元素一直在移动"，点不下去（E2E 就是这么挂的）。 */
+  animation: cta-breathe 1.6s ease-in-out 3;
   will-change: transform;
 }
 .cta-pulse:disabled {

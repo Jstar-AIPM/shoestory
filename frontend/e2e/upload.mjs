@@ -43,7 +43,13 @@ if (!existsSync(IMAGE)) {
 const run = async () => {
   await mkdir(OUT, { recursive: true });
   const browser = await chromium.launch({ channel: "chrome" });
-  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, locale: "zh-CN" });
+  // 关掉全部动效（项目里 prefers-reduced-motion 会把所有 animation/transition 压到 0.01ms）：
+  // 既让截图确定，也避免"元素一直在动 → 点不下去"（2026-09-25 就是这么挂的）
+  const context = await browser.newContext({
+    viewport: { width: 1440, height: 1000 },
+    locale: "zh-CN",
+    reducedMotion: "reduce",
+  });
   const page = await context.newPage();
 
   const consoleErrors = [];
