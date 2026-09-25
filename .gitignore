@@ -65,3 +65,6 @@ docs/0[0-9]*.md
 # CI / 演示模式产生的报告（不入库，避免覆盖真实验收证据）
 docs/.smoke-*.md
 docs/smoke-report-demo.md
+
+# E2E 自动写的截图（每次跑都覆盖；README 用的是手工挑选的 01–06）
+docs/screenshots/v2-*.png
