@@ -1,6 +1,6 @@
 """API 依赖注入：配置、容器、当前身份（阶段 4：邀请码会话）。
 
-身份来源（内部工程笔记 4.7(2) 的最终形态）：
+身份来源（一个邀请码 = 一个鞋柜，见 services/auth/invite_store.py）：
 - **prod**：必须持有效会话 Cookie，`owner_id` 由邀请码派生（一码一鞋柜）；
 - **dev**：默认用 `DEV_OWNER_ID`（不强制登录，便于本地开发）；可用 `FORCE_AUTH=true` 打开登录做测试。
 

@@ -195,7 +195,7 @@ class Settings(BaseSettings):
     def use_mock_providers(self) -> bool:
         """是否使用 mock 上游。
 
-        规则（对应内部工程笔记 4.7(4) 与阶段文档 4.2）：
+        规则（三层配额，见 services/auth/quota.py）：
         - 配置齐全且未强制 mock -> 真实上游；
         - 配置不齐（含“只填了 Key”）时，若 ENABLE_MOCK_PROVIDER=true（演示模式）-> mock，
           并在界面/健康检查里明确告知还给哪些项；

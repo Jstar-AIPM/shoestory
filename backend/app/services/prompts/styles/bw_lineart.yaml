@@ -10,7 +10,7 @@ version: 4
 #: 后续会把"填色可控性"再做一轮，做完把 hidden 改回 false 就能启用。
 hidden: true
 reference_images: [AJ14, KD12, PG1, PG6] # ground truth：风格参考/ 目录（不随线上发布）
-reference_metrics: docs/风格量化指标.md # 量化结果与目标区间
+# 量化结果与目标区间：本文件下面的 style_metrics（区间即从这 4 张参考图实测得出）
 
 canvas: # → 保证「外轮廓尺寸一致」
   aspect_ratio: "3:2"
@@ -102,7 +102,7 @@ quality_gate: # 交给 s17 独立质检 + 确定性风格闸门
   # 而那张被画成楝形的 PG4 是 0.275。取 0.70：能抳下真塌陷，又不会因为
   # 风格差异白白多烧一次重画。（数据变多后可以收紧，改这一个数就行。）
   silhouette_floor: 0.70
-  # 风格一致性闸门：由参考图量化得出（docs/风格量化指标.md），由代码判定，不信模型。
+  # 风格一致性闸门：由参考图量化得出（本文件的 style_metrics 注释），由代码判定，不信模型。
   # - hatch_suspect：**硬判据**。4 张参考图实测全为 0；"排线版"问题图 = 34；干净版 = 4。
   #   实测证明它是唯一能区分"排线/素描"与"干净线稿"的指标，因此只有它当硬闸门。
   # - ink_ratio / solid_black_share / filled_block_share 下限：**观察区间**（只报告，不决定成败）。

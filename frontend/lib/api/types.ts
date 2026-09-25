@@ -1,6 +1,6 @@
 /**
  * 后端接口类型（与阶段 1 后端真实契约逐字对应）
- * 参考：docs/阶段开发文档.md 第 5 节
+ * 参考：docs/决策记录-V2-输入与风格.md 第 5 节
  */
 
 export type CropBox = { x: number; y: number; w: number; h: number };

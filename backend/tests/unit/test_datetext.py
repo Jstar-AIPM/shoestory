@@ -1,4 +1,4 @@
-"""`date_text` 解析规则（纯函数，重点单测）—— 对应阶段文档 6.3 表格。"""
+"""`date_text` 解析规则（纯函数，重点单测）—— 边界与歧义优先。"""
 
 from __future__ import annotations
 

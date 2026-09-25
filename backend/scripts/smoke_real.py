@@ -1,11 +1,11 @@
 #!/usr/bin/env python
-"""第二层验收：真实模型端到端冒烟（工程约定）。
+"""第二层验收：真实模型端到端冒烟（按约定：无 Key 时如实写"待验"，不冒充通过）。
 
 脚本自己做三件事，全部如实记录：
   1. 拉起真实 uvicorn 服务（不是 mock 进程，真实异步流水线 + 轮询接口）
   2. 用真实 Key 跑完整链路：型号校对 -> 搜图 -> 源图确认 -> 生成 -> 后处理 -> 质检 ->
      效果确认 -> 归档 -> 读回
-  3. 把实测结果写成报告：docs/早期冒烟报告.md
+  3. 把实测结果写成报告：docs/smoke-report-v2-upload.md
 
 用法（在 backend/ 目录下）：
     python scripts/smoke_real.py --query "nike kd 12" --source-index 0

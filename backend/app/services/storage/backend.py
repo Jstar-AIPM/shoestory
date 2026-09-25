@@ -1,7 +1,7 @@
 """存储抽象（阶段 1 强制项）：业务层只说“相对 key”，落地由后端决定。
 
 阶段 1 只实现 LocalBackend；阶段 4 增加 S3Backend（火山 TOS）后仅改环境变量
-`STORAGE_PROVIDER=s3`，业务代码零改动（内部工程笔记 4.7(1)）。
+`STORAGE_PROVIDER=s3`，业务代码零改动。
 """
 
 from __future__ import annotations

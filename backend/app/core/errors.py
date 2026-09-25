@@ -48,7 +48,7 @@ class ErrorCode(str, Enum):
     INTERNAL_ERROR = "INTERNAL_ERROR"
 
 
-# 默认 HTTP 状态码（业务失败用 2xx + state 表达，见阶段文档 7.1）
+# 默认 HTTP 状态码（业务失败用 2xx + state 表达，不用 4xx/5xx）
 _DEFAULT_STATUS: dict[ErrorCode, int] = {
     ErrorCode.INVALID_INPUT: 422,
     ErrorCode.INVALID_STATE: 409,

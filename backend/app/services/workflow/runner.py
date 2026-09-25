@@ -6,7 +6,7 @@
 
 - 每步都落盘（任务文件 + trace JSONL），进程重启后可恢复；
 - 上游调用统一走 CallRecorder（成本护栏，硬上限 10 次/任务）；
-- 不做开放式 Agent Loop（内部工程笔记 4.4）。
+- 不做开放式 Agent Loop（流程本身是确定的，让模型自由选工具只会带来不可控的开销）。
 """
 
 from __future__ import annotations

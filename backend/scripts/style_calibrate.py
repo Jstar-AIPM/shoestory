@@ -5,7 +5,7 @@
     python scripts/style_calibrate.py                 # 默认读 ../风格参考
     python scripts/style_calibrate.py --dir <目录>
 
-输出：控制台表格 + docs/风格量化指标.md（可直接抄进 bw_lineart.yaml 的 style_metrics）
+输出：控制台表格 + bw_lineart.yaml 的 style_metrics 注释（可直接抄进 bw_lineart.yaml 的 style_metrics）
 """
 
 from __future__ import annotations

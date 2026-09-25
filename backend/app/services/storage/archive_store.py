@@ -2,7 +2,7 @@
 
 - schema_version 版本校验（过新 -> SCHEMA_TOO_NEW，拒绝写入）
 - 原子写入 + 损坏备份（损坏时返回 warning，仍可读）
-- 单写者锁（进程内；阶段 4 部署限制单实例，见内部工程笔记 4.7(3)）
+- 单写者锁（进程内；部署时限单实例 —— 多实例并发会互相覆盖 JSON）
 - 排序：manual_order 非空优先 -> date_sort_key 升序（null 最后）-> created_at
 """
 
