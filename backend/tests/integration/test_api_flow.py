@@ -286,3 +286,29 @@ def test_legacy_single_page_ui_is_retired(client: TestClient) -> None:
     """
     assert client.get("/").status_code == 404
     assert client.get("/static/accept.js").status_code == 404
+
+
+def test_watercolor_task_can_be_archived(client_factory) -> None:
+    """水彩任务要能走完整条归档链路。
+
+    回归线上 E2E 抓到的 bug：`export_asset` 里写死了"画稿必须纯二值"，
+    而水彩是彩色连续色调 → 归档被拦下 → **用户画完根本存不进鞋柜**。
+    这里用当前主风格（水彩）跑一遍建任务 → 出图 → 归档 → 读回。
+    """
+    with client_factory(style_id="watercolor") as wc:
+        task = run_to_artwork(wc, "kd12")
+        assert task["style_id"] == "watercolor"
+        assert task["state"] == "awaiting_effect_confirm"
+
+        created = archive_task(wc, task["task_id"], date_text="2021年6月")
+        assert created["shoe_id"]
+
+        detail = wc.get(f"/api/v1/archive/{created['shoe_id']}").json()
+        assert detail["style_id"] == "watercolor"
+        # 水彩是纸底、非二值 —— 元数据必须如实记录（否则前端会按黑白稿去叠牛皮纸）
+        assert detail["artwork_meta"]["binary"] is False
+        assert detail["artwork_meta"]["background"] == "paper"
+
+        # 列表项也要带上风格（卡片按各自风格渲染）
+        listed = wc.get("/api/v1/archive").json()["items"]
+        assert listed[0]["style_id"] == "watercolor"

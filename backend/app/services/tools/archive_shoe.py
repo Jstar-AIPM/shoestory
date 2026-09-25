@@ -40,7 +40,8 @@ def archive_shoe(
     story: str | None = None,
     manual_order: int | None = None,
 ) -> ArchiveItem:
-    exported, check = export_asset(artwork_png, settings)
+    # 校验标准按风格走：黑白稿要求纯二值，水彩稿要求纸底留白（见 export_asset）
+    exported, check = export_asset(artwork_png, settings, style)
     shoe_id = new_shoe_id()
     artwork_path = asset_store.put_archive_artwork(owner_id, shoe_id, exported)
 
@@ -57,6 +58,7 @@ def archive_shoe(
             ratio="3:2",
             binary=bool(check["binary"]),
             background=check["background"],
+            background_ratio=check.get("background_ratio"),
             has_text_overlay=False,
             white_ratio=check["white_ratio"],
         ),

@@ -13,15 +13,21 @@ from app.schemas.enums import RIGHTS_NOTE
 
 
 class ArtworkMeta(BaseModel):
+    """画稿元数据。**不再假设"一定是二值白底"** —— 彩色风格（水彩）是连续色调 + 纸底。"""
+
     model_config = ConfigDict(extra="allow")
 
     width: int
     height: int
     ratio: str = "3:2"
+    #: 是否纯二值。黑白线稿为 True；水彩等彩色风格为 False
     binary: bool = True
+    #: 底色：`white`（黑白稿）或 `paper`（水彩的暖白纸底）
     background: str = "white"
     has_text_overlay: bool = False
     white_ratio: float | None = None
+    #: 与底色的接近程度（非二值风格用它判"留白够不够"）
+    background_ratio: float | None = None
 
 
 class ArchiveSource(BaseModel):

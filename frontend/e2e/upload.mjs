@@ -100,21 +100,42 @@ const run = async () => {
 
   // ---------- ④ 开始画：草稿动效 → 正式稿 ----------
   await page.getByRole("button", { name: "开始画" }).click();
-  const qualityLine = page.getByText(/质检 \d/);
-  await qualityLine.first().waitFor({ timeout: STEP_TIMEOUT });
-  const qualityText = await qualityLine.first().innerText();
-  const score = Number((qualityText.match(/质检\s*([\d.]+)/) ?? [])[1] ?? "0");
-  check("产出画稿并给出质检分数", score > 0, qualityText.trim());
-  check("质检分数达标（≥0.80）", score >= 0.8, `score=${score}`);
+  // 注：质检明细自 2026-09-23 起不再对用户显示（用户只需要判断"满不满意"），
+  // 所以这里等的是状态条 + 画稿本身，而不是分数。
+  await page.getByText(/画好了，等您确认/).first().waitFor({ timeout: STEP_TIMEOUT });
+  const artworkImg = page.locator("img[alt$='的插画']").first();
+  await artworkImg.waitFor({ timeout: STEP_TIMEOUT });
+  // 等图片**真的解码出来**再判：状态条出现时图片可能还在下载/解码，
+  // 单次 evaluate 会误判成"没加载"（自测踩过）。
+  const loaded = await page
+    .waitForFunction(
+      () => {
+        const el = document.querySelector("img[alt$='的插画']");
+        return !!el && el.naturalWidth > 0 && el.complete;
+      },
+      null,
+      { timeout: STEP_TIMEOUT },
+    )
+    .then(() => true)
+    .catch(() => false);
+  const box = await artworkImg.boundingBox();
+  check("产出画稿并真正加载出图", loaded && !!box && box.width > 200, `尺寸 ${box?.width ?? 0}×${box?.height ?? 0}`);
+  // 展示层按风格分派：水彩稿自带纸底，**不能**再叠牛皮纸 + multiply，否则会被染成褐色。
+  const frameClass = (await artworkImg.evaluate((el) => el.parentElement?.className ?? "")) || "";
+  check(
+    "水彩稿没有被叠上牛皮纸层",
+    frameClass.includes("artwork-plain") && !frameClass.includes("artwork-paper"),
+    frameClass.trim().slice(0, 48),
+  );
   await shoot("v2-3-artwork.png");
 
   // ---------- ⑤ 归档 → 刷新仍在 ----------
-  await page.getByRole("button", { name: "满意，归档" }).click();
+  await page.getByRole("button", { name: "满意，收进鞋柜" }).click();
   await page.getByRole("button", { name: "归档进鞋柜" }).click();
   await page.getByText(/已归档/).first().waitFor({ timeout: STEP_TIMEOUT });
   await page.reload({ waitUntil: "networkidle" });
   await page.getByText(/已归档|鞋柜/).first().waitFor({ timeout: STEP_TIMEOUT });
-  const gridCount = await page.locator("img[alt$='的黑白线稿']").count();
+  const gridCount = await page.locator("img[alt$='的插画']").count();
   check("刷新后鞋柜里那双还在（数据在对象存储）", gridCount >= 1, `画稿数=${gridCount}`);
   await shoot("v2-4-archived.png");
 

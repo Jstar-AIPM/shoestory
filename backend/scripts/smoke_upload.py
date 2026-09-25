@@ -191,8 +191,25 @@ def run_flow(
     started = time.perf_counter()
     artwork = client.get(last["current_artwork_url"])
     artwork.raise_for_status()
-    check = check_artwork(artwork.content, ARTWORK_W, ARTWORK_H)
-    step("取画稿并自检", started, canvas_score=check["canvas_score"])
+    # 自检不能写死"必须纯二值" —— 彩色风格（水彩）本来就不是二值的。
+    # 风格从服务端拿（`/styles` 只列对外开放的风格，取第一个即当前主风格）。
+    style_id, require_binary = "bw_lineart", True
+    try:
+        styles = client.get("/api/v1/styles").json()
+        if styles:
+            style_id = styles[0]["style_id"]
+            # 黑白线稿要求纯二值；其余（水彩等彩色风格）只要求比例与留白
+            require_binary = style_id == "bw_lineart"
+    except Exception:  # noqa: BLE001 - 拉不到风格就按黑白判，宁可严一点
+        pass
+    check = check_artwork(
+        artwork.content, ARTWORK_W, ARTWORK_H,
+        require_binary=require_binary,
+        min_background_ratio=0.60 if require_binary else 0.45,
+        background_label="white" if require_binary else "paper",
+    )
+    step("取画稿并自检", started, canvas_score=check["canvas_score"], style=style_id)
+    report["style_id"] = style_id
     report["artwork_check"] = check
 
     out_dir = REPO_ROOT / "docs" / "smoke-artifacts"
@@ -222,7 +239,8 @@ def run_flow(
 
     ok = (
         check["ratio_ok"]
-        and check["binary"]
+        # 纯二值只在**要求二值的风格**下才是硬指标（彩色风格本来就不是二值的）
+        and (check["binary"] or not check["require_binary"])
         and check["background_ok"]
         and last["state"] == "awaiting_effect_confirm"
         and report["checks"]["size_contract"]

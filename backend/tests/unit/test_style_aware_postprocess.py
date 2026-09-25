@@ -17,6 +17,7 @@ from __future__ import annotations
 import io
 
 import numpy as np
+import pytest
 from PIL import Image
 
 from app.core.config import STYLES_DIR
@@ -163,3 +164,43 @@ def test_silhouette_comparison_uses_the_right_mode() -> None:
     assert wrong.get("ok") is False, "浅色画稿用黑墨取法应当抽不到主体"
     assert right["ok"] is True
     assert 0.3 < right["iou_frame"] < 1.0
+
+
+# --------------------------------------------------------------------------- 导出/归档
+
+
+def test_export_rejects_color_when_style_is_binary() -> None:
+    """黑白风格下，彩色画稿必须被拦下（旧行为，不能退化）。"""
+    from app.core.config import Settings
+    from app.core.errors import AppError
+    from app.services.tools.export_asset import export_asset
+
+    style = _styles().get("bw_lineart")
+    settings = Settings(_env_file=None, data_dir="/tmp/x")
+    with pytest.raises(AppError):
+        export_asset(_paper_canvas_with_shoe(), settings, style)
+
+
+def test_export_accepts_color_for_watercolor_style() -> None:
+    """**线上 E2E 抓到的 bug**：校验标准写死了"纯二值"，导致水彩稿在归档时被拦下 ——
+    表现是"用户画完根本存不进鞋柜"。校验必须按风格来。"""
+    from app.core.config import Settings
+    from app.services.tools.export_asset import export_asset
+
+    style = _styles().get("watercolor")
+    settings = Settings(_env_file=None, data_dir="/tmp/x")
+    _png, check = export_asset(_paper_canvas_with_shoe(), settings, style)
+    assert check["require_binary"] is False
+    assert check["background"] == "paper"
+    assert check["background_ok"] is True
+
+
+def test_export_without_style_keeps_old_strictness() -> None:
+    """不传风格时按黑白旧标准（兼容旧调用点）。"""
+    from app.core.config import Settings
+    from app.core.errors import AppError
+    from app.services.tools.export_asset import export_asset
+
+    settings = Settings(_env_file=None, data_dir="/tmp/x")
+    with pytest.raises(AppError):
+        export_asset(_paper_canvas_with_shoe(), settings)
