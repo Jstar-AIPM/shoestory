@@ -58,6 +58,8 @@ class InspectOut(BaseModel):
     tier: str
     message: str
     hint: str
+    #: 非阻断提醒（如"这张有点糊"）—— 仍然可以继续画
+    warning: str = ""
     crop: CropBox | None
     image: dict
     subject: dict
@@ -90,6 +92,9 @@ def _to_out(result: InspectResult, *, upscale: float = 1.0) -> InspectOut:
         tier=result.tier,
         message=result.message,
         hint=result.hint,
+        # ⚠️ 漏了这一行曾经让清晰度提示在线上完全不生效：响应里字段在、值永远是空串
+        # （模型有默认值 ""，所以不会报错，只是静默不显示）。
+        warning=result.warning,
         crop=crop,
         image={
             "width": int(round(result.image_size[0] * upscale)),

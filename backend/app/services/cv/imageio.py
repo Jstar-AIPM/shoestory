@@ -10,7 +10,12 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from app.core.errors import AppError, ErrorCode
 
 MAX_IMAGE_BYTES = 10 * 1024 * 1024  # 10MB
-MIN_EDGE = 400
+# 2026-09-25：原来这里是 400，实测很伤人 —— 用户从手机截图裁出的一块（506×320）
+# 画面明明清楚，却根本传不上去、界面上也没有任何提示。画法是水彩抽象，
+# 本来就不需要照片级细节，所以尺寸不再当门槛。
+# 只留一个技术底线：小到这个程度已经不是一张照片了（防的是乱传文件，
+# 以及下游 CV/视觉调用拿到无法处理的输入）。清晰度另外用 cv/sharpness.py 评估。
+MIN_EDGE = 64
 ALLOWED_FORMATS = {"JPEG", "PNG", "WEBP", "BMP"}
 
 
@@ -35,7 +40,7 @@ def validate_image_bytes(data: bytes, *, min_edge: int = MIN_EDGE, max_bytes: in
     if width < min_edge or height < min_edge:
         raise AppError(
             ErrorCode.UNSUPPORTED_IMAGE,
-            message=f"图片太小（至少 {min_edge}×{min_edge}px），请换一张更清晰的图。",
+            message=f"这张图太小了（{width}×{height}），小到看不出是什么，请换一张。",
             detail={"width": width, "height": height},
         )
     return {"format": fmt, "width": width, "height": height}

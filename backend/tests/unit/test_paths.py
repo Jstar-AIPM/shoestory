@@ -83,10 +83,22 @@ def test_svg_masquerade_rejected() -> None:
     assert excinfo.value.code is ErrorCode.UNSUPPORTED_IMAGE
 
 
-def test_tiny_image_rejected() -> None:
+def test_absurdly_tiny_image_rejected() -> None:
+    """只有"小到不像一张照片"才拒。
+
+    2026-09-25 反馈：原来卡的是短边 < 400，用户从手机截图裁出的一块（506×320）
+    画面很清楚却传不上去、界面还没有任何反应。现在尺寸不再是门槛（只留 64px 技术底线），
+    清晰度另外评估、且只提示不拦 —— 所以这里改成用一个 40×40 的图来验。
+    """
     with pytest.raises(AppError) as excinfo:
-        validate_image_bytes(make_png_bytes(100, 100))
+        validate_image_bytes(make_png_bytes(40, 40))
     assert excinfo.value.code is ErrorCode.UNSUPPORTED_IMAGE
+
+
+def test_screenshot_crop_like_image_is_accepted() -> None:
+    """506×320 这种"从截图里裁出来的一块"必须放行（就是上面那次反馈的尺寸）。"""
+    meta = validate_image_bytes(make_png_bytes(506, 320))
+    assert meta["width"] == 506 and meta["height"] == 320
 
 
 def test_oversize_bytes_rejected() -> None:

@@ -23,6 +23,7 @@ from PIL import Image
 from app.core.errors import AppError, ErrorCode
 from app.schemas.inspect import PhotoInspectOut
 from app.services.cv.imageio import validate_image_bytes
+from app.services.cv.sharpness import is_too_blurry
 from app.services.cv.subject import SubjectVerdict, judge_subjects, suggest_crop
 from app.services.providers.base import ProviderBundle
 
@@ -44,6 +45,8 @@ class InspectResult:
     tier: str
     message: str
     hint: str = ""
+    #: 非阻断的提醒（如"这张有点糊，换一张会更清楚"）—— 仍可继续画
+    warning: str = ""
     crop: tuple[int, int, int, int] | None = None  # 原图坐标 x,y,w,h
     image_size: tuple[int, int] = (0, 0)
     subject_status: str = "ok"
@@ -74,6 +77,21 @@ class InspectResult:
         return self.vision.drawable_texts if self.vision else []
 
 
+BLUR_WARNING = "这张图有点模糊。直接画也可以，但换一张更清楚的，出来的细节会更好。"
+
+
+def _with_blur_warning(result: InspectResult, blurry: bool) -> InspectResult:
+    """给"可以画"的结论挂上清晰度提示。
+
+    ⚠️ 必须**每个 ok 返回路径都过一遍**：体检里"可以画"不止一条出路
+    （还有一条是"CV 说框里多只鞋、但视觉模型说只有一只 → 放行"）。
+    我第一版只加在最后那条上，结果线上怎么测都不提示 —— 实测踩过。
+    """
+    if blurry and result.ok:
+        result.warning = BLUR_WARNING
+    return result
+
+
 def _crop_image(image: Image.Image, box: tuple[int, int, int, int]) -> Image.Image:
     x, y, w, h = box
     x0, y0 = max(0, x), max(0, y)
@@ -101,6 +119,8 @@ def inspect_upload(
     image = Image.open(io.BytesIO(data)).convert("RGB")
     full = np.array(image)
     size = (image.width, image.height)
+    # 清晰度：**只提示、不拦**。画法是水彩抽象，糊一点也能画，让人自己决定（2026-09-25 反馈）
+    blurry = is_too_blurry(data)
 
     # ---------- 用户还没框选：只做 CV，返回建议框 ----------
     if crop is None:
@@ -115,14 +135,19 @@ def inspect_upload(
                 subject_status=verdict.status,
                 subject_count=len(verdict.subjects),
             )
-        return InspectResult(
-            tier=TIER_OK,
-            message="已经帮您框出这双鞋，可以直接开始画。",
-            hint="如果框得不准，您可以拖动方框调整一下。",
-            crop=verdict.suggested_crop,
-            image_size=size,
-            subject_status=verdict.status,
-            subject_count=len(verdict.subjects),
+        # 第一次体检（刚选完图）就给清晰度提示：原来"图太小直接拒收、界面还没反应"
+        # 就是发生在这个阶段，越早说越好。
+        return _with_blur_warning(
+            InspectResult(
+                tier=TIER_OK,
+                message="已经帮您框出这双鞋，可以直接开始画。",
+                hint="如果框得不准，您可以拖动方框调整一下。",
+                crop=verdict.suggested_crop,
+                image_size=size,
+                subject_status=verdict.status,
+                subject_count=len(verdict.subjects),
+            ),
+            blurry,
         )
 
     # ---------- 用户已框选：判定裁切后的主体 + AI 体检 ----------
@@ -137,18 +162,20 @@ def inspect_upload(
     if crop_verdict.status == "multi":
         vision = providers.judge.inspect_photo(image=_png_bytes(cropped), recorder=recorder)
         if vision.tier == "shoe" and vision.shoe_count <= 1:
-            result = InspectResult(
-                tier=TIER_OK,
-                message=f"认出来了：{vision.display_name}。" if vision.display_name else "已经认出这双鞋。",
-                hint="您框住的这一双我认得，直接开始画就好；不放心也可以再收一收方框。",
-                crop=crop,
-                image_size=size,
-                subject_status=crop_verdict.status,
-                subject_count=1,
-                vision=vision,
-                extra={"logo": vision.logo.model_dump(), "texts": [t.model_dump() for t in vision.texts]},
+            return _with_blur_warning(
+                InspectResult(
+                    tier=TIER_OK,
+                    message=f"认出来了：{vision.display_name}。" if vision.display_name else "已经认出这双鞋。",
+                    hint="您框住的这一双我认得，直接开始画就好；不放心也可以再收一收方框。",
+                    crop=crop,
+                    image_size=size,
+                    subject_status=crop_verdict.status,
+                    subject_count=1,
+                    vision=vision,
+                    extra={"logo": vision.logo.model_dump(), "texts": [t.model_dump() for t in vision.texts]},
+                ),
+                blurry,
             )
-            return result
         return InspectResult(
             tier=TIER_MULTI,
             message="这个框里还是有不止一双鞋，我分不清您想画哪一双。",
@@ -214,7 +241,7 @@ def inspect_upload(
     named = vision.display_name
     result.message = f"认出来了：{named}。" if named else "已经认出这双鞋，可以开始画了。"
     result.hint = "您确认没问题就点「开始画」；也可以重新上传换一张图。"
-    return result
+    return _with_blur_warning(result, blurry)
 
 
 def suggest_box_only(data: bytes) -> tuple[tuple[int, int, int, int] | None, tuple[int, int]]:

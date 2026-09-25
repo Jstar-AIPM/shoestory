@@ -306,3 +306,41 @@ def test_multi_crop_still_asks_to_recrop_when_vision_sees_two(api: TestClient, m
     data = _inspect(api, image=payload, crop={"x": 80, "y": 280, "w": 440, "h": 640}).json()
     assert data["tier"] == "multi"
     assert "不止一双" in data["message"]
+
+
+def test_blur_warning_is_attached_on_every_ok_path(api) -> None:
+    """清晰度提示必须挂到**每一条"可以画"的返回路径**上。
+
+    2026-09-25 线上实测踩到：体检里"可以画"不止一条出路，还有一条是
+    "CV 说框里多只鞋、但视觉模型说只有一只 → 放行"。第一版只加在最后一条上，
+    结果线上怎么测都不提示。
+    """
+    png = _blurry_shoe_png()
+    image = "data:image/png;base64," + __import__("base64").b64encode(png).decode()
+
+    # 不带框：先拿建议框
+    first = api.post("/api/v1/inspect", json={"image_base64": image}).json()
+    crop = first.get("crop")
+    assert crop, first
+
+    # 带框：只要结论是"可以画"，就必须带提示
+    second = api.post("/api/v1/inspect", json={"image_base64": image, "crop": crop}).json()
+    if second["ok"]:
+        assert second["warning"], f"可以画却没给清晰度提示：{second['tier']}"
+
+
+def _blurry_shoe_png() -> bytes:
+    """一张"鞋形 + 明显模糊"的图。"""
+    import io
+
+    import cv2
+    import numpy as np
+    from PIL import Image, ImageDraw
+
+    img = Image.new("RGB", (900, 600), (245, 245, 245))
+    draw = ImageDraw.Draw(img)
+    draw.polygon([(120, 480), (330, 250), (700, 230), (800, 470)], fill=(70, 70, 70))
+    arr = cv2.GaussianBlur(np.array(img), (31, 31), 0)
+    buffer = io.BytesIO()
+    Image.fromarray(arr).save(buffer, format="PNG")
+    return buffer.getvalue()

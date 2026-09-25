@@ -189,7 +189,10 @@ export default function CabinetPage() {
                   "按型号生成（老方式）"入口已下线（产品反馈 6）：只保留上传图这一条路，
                   少一条路就少一种"结果为什么不一样"的解释成本。 */}
               <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
-                <div className="flex min-w-0 flex-1">
+                {/* ⚠️ 这里**不要**加 flex：加了会让 UploadEntry 的根 div 变成 flex item，
+                    宽度缩到内容宽度 —— 表现就是左边框很窄、中间一条 200px 的大缝
+                    （2026-09-25 反馈）。用普通块级 + 子元素 h-full/w-full 撑满即可。 */}
+                <div className="min-w-0 flex-1">
                   <UploadEntry
                     disabled={ui === "running" || ui === "waiting_user" || !canGenerate}
                     onFiles={(files) => upload.acceptFiles(files)}

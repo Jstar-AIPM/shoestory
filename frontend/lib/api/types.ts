@@ -12,7 +12,14 @@ export type TextStamp = {
   box: [number, number, number, number] | null;
 };
 
-export type InspectTier = "ok" | "not_shoe" | "multi" | "uncertain";
+export type InspectTier =
+  | "ok"
+  | "uncertain"
+  // 以下四档都是"先不画"：不是鞋 / 不止一只 / 角度不对 / 没框全
+  | "not_shoe"
+  | "multi"
+  | "not_side_view"
+  | "incomplete";
 
 /** POST /inspect 的响应（前端只负责渲染，不猜后端规则） */
 export type InspectResponse = {
@@ -20,6 +27,8 @@ export type InspectResponse = {
   tier: InspectTier;
   message: string;
   hint: string;
+  /** 非阻断提醒（如"这张有点糊"）—— 仍然可以继续画 */
+  warning: string;
   crop: CropBox | null;
   image: { width: number; height: number };
   subject: { status: string; count: number };

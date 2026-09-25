@@ -44,7 +44,9 @@ export function UploadEntry({
   }, [disabled, onFiles]);
 
   return (
-    <div>
+    // h-full：父容器是 flex row 的 item（items-stretch），这里撑满高度，
+    // 里面的按钮再用 h-full/w-full 填满 —— 于是虚线框与右侧示例区一样高、一样宽
+    <div className="h-full">
       <input
         ref={inputRef}
         type="file"

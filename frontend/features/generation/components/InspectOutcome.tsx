@@ -76,10 +76,17 @@ export function InspectOutcome({
       </div>
 
       <p className="mt-2.5 text-[13.5px] leading-relaxed text-muted">{inspect.message}</p>
-      {uncertain ? (
+      {inspect.hint ? (
         <p className="mt-1.5 text-[13px] text-faint">{inspect.hint}</p>
-      ) : inspect.hint ? (
-        <p className="mt-1.5 text-[13px] text-faint">{inspect.hint}</p>
+      ) : null}
+
+      {/* 清晰度提示：**只建议、不拦人**（2026-09-25 反馈）——
+          以前是短边不够就根本传不上去，界面上还没反应，体验很差。
+          现在正常收图、照常能画，糊了才提醒一句，画不画由用户定。 */}
+      {inspect.warning ? (
+        <p className="mt-2 rounded-[var(--radius-btn)] border border-warn/30 bg-warn/[0.08] px-3 py-2 text-[12.5px] leading-relaxed text-warn">
+          {inspect.warning}
+        </p>
       ) : null}
 
       {!uncertain ? (

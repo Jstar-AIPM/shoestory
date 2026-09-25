@@ -204,3 +204,56 @@ def test_export_without_style_keeps_old_strictness() -> None:
     settings = Settings(_env_file=None, data_dir="/tmp/x")
     with pytest.raises(AppError):
         export_asset(_paper_canvas_with_shoe(), settings)
+
+
+# --------------------------------------------------------------------------- 清晰度（产品反馈：别一上来就拒收）
+
+
+def _sharp_png() -> bytes:
+    """一张"有内容"的图：棋盘格 = 高对比细节。"""
+    grid = (np.indices((320, 506)).sum(axis=0) % 8 < 4).astype(np.uint8) * 255
+    return encode_png(Image.fromarray(grid, mode="L").convert("RGB"))
+
+
+def _blurry_png() -> bytes:
+    import cv2
+
+    grid = (np.indices((320, 506)).sum(axis=0) % 8 < 4).astype(np.uint8) * 255
+    blurred = cv2.GaussianBlur(grid, (21, 21), 0)
+    return encode_png(Image.fromarray(blurred, mode="L").convert("RGB"))
+
+
+def test_sharpness_separates_sharp_from_blurred() -> None:
+    from app.services.cv.sharpness import is_too_blurry, sharpness_score
+
+    assert sharpness_score(_sharp_png()) > 100
+    assert sharpness_score(_blurry_png()) < 10
+    assert is_too_blurry(_sharp_png()) is False
+    assert is_too_blurry(_blurry_png()) is True
+
+
+def test_sharpness_does_not_punish_small_images() -> None:
+    """**这是原来那条 400px 规则的毛病**：Laplacian 方差随分辨率下降，
+    不归一化的话"小尺寸但清楚"的图会被误判成糊。指标必须先归一化再算 ——
+    用户从手机截图裁出来的 506×320 就是这种情况，它比我们自己挑的示例图还清楚。
+    """
+    from app.services.cv.sharpness import sharpness_score
+
+    grid = (np.indices((320, 506)).sum(axis=0) % 8 < 4).astype(np.uint8) * 255
+    small = encode_png(Image.fromarray(grid, mode="L").convert("RGB"))
+    import cv2
+
+    large = encode_png(
+        Image.fromarray(
+            cv2.resize(grid, (1012, 640), interpolation=cv2.INTER_NEAREST), mode="L"
+        ).convert("RGB")
+    )
+    # 同一张图放大 4 倍：都应当被判定为"清楚"，分数同量级
+    assert sharpness_score(small) > 100
+    assert sharpness_score(large) > 100
+
+
+def test_sharpness_on_undecodable_input_returns_zero() -> None:
+    from app.services.cv.sharpness import sharpness_score
+
+    assert sharpness_score(b"not an image") == 0.0
