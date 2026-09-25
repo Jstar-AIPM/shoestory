@@ -6,16 +6,16 @@
  * 放在上传区右侧，高度与左边的虚线框一致。目的：**先给人看"什么样的图能出好效果"**。
  * 一句"白底、正侧面"的文字说明，远不如两张图直观 —— 用户看一眼就知道该找哪张照片。
  *
- * ⚠️ 现在是**占位**：等你提供两张鞋头朝左的正侧视图，把文件放进
- * `frontend/public/examples/` 并改下面的 `EXAMPLES` 即可，其它不用动。
- * 占位期间不显示假图，只显示一个"待替换"的图示，避免用错图误导用户。
+ * 两张示例图（`public/examples/`）在入库前做过统一处理：**同为 1200×800（3:2）、
+ * 鞋宽都占画布 84%、鞋底对齐在同一条基线** —— 所以并排看起来一样大、一样齐。
+ * 换图时请保持这三条（脚本做法：取主体外接框 → 按宽度等比缩放 → 居中、底边对齐）。
  */
 import { cn } from "@/lib/utils/cn";
 
 /** 示例图配置：src 为空时渲染占位块 */
 const EXAMPLES: { src: string; caption: string }[] = [
-  { src: "", caption: "示例一 · 白底正侧面" },
-  { src: "", caption: "示例二 · 浅底正侧面" },
+  { src: "/examples/example-1.png", caption: "示例一 · 正侧面" },
+  { src: "/examples/example-2.png", caption: "示例二 · 正侧面" },
 ];
 
 export function UploadExamples({ className }: { className?: string }) {
@@ -28,12 +28,12 @@ export function UploadExamples({ className }: { className?: string }) {
       aria-label="推荐的上传角度示例"
     >
       <p className="text-[12.5px] font-medium text-ink">
-        这样拍，效果最好
+        上传如下角度的图片，效果更好
       </p>
       {/* JSX 不渲染 Markdown —— 这里要用 <strong>，写成 ** 会原样显示出来（自测发现过） */}
       <p className="mt-1 text-[12px] leading-relaxed text-muted">
-        单只鞋、白底或浅底、<strong className="font-medium text-ink">鞋头朝左的正侧面</strong>
-        ，整只鞋都在画面里。俯视、斜侧角、一张图里好几只鞋，目前都没法画出统一的效果。
+        单只鞋、干净的背景、<strong className="font-medium text-ink">鞋头朝左的正侧面</strong>
+        ，整只鞋都在画面里。
       </p>
 
       <div className="mt-2.5 grid grid-cols-2 gap-2.5">

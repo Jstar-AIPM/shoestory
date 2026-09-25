@@ -169,14 +169,8 @@ export default function CabinetPage() {
 
         {/* 首屏要在一屏内露出「上传入口 + 我的鞋柜标题」：Hero 收紧（标题变小、间距变紧、文案压到两行） */}
         <PageShell className="!pt-6 !pb-8 sm:!pt-8 sm:!pb-10">
-          {/* 中英锁定：中文是主名（大、粗），英文紧随其后（小一号、宽字距、弱一档颜色）。
-              这是中文品牌做英文副名的常规排法 —— 两者共处一行，读起来是一个标识而不是两行字。 */}
-          <h1 className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <span className="display-upper text-[30px] text-white sm:text-[34px]">鞋历</span>
-            <span className="text-[15px] font-semibold uppercase tracking-[0.28em] text-white/55 sm:text-[17px]">
-              Shoestory
-            </span>
-          </h1>
+          {/* 英文名 2026-09-25 移到顶栏与登录页 —— 首屏只留中文，一个名字就够 */}
+          <h1 className="display-upper mt-2 text-[30px] text-white sm:text-[34px]">鞋历</h1>
           <p className="display-upper mt-1.5 text-[12px] tracking-[0.2em] text-accent">MY SHOE CABINET</p>
           {/* slogan 已在顶栏出现一次，这里不再重复（2026-09-23 反馈） */}
           <p className="mt-2 max-w-[560px] text-[13.5px] leading-relaxed text-muted">
@@ -195,7 +189,7 @@ export default function CabinetPage() {
                   "按型号生成（老方式）"入口已下线（产品反馈 6）：只保留上传图这一条路，
                   少一条路就少一种"结果为什么不一样"的解释成本。 */}
               <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
-                <div className="min-w-0 flex-1">
+                <div className="flex min-w-0 flex-1">
                   <UploadEntry
                     disabled={ui === "running" || ui === "waiting_user" || !canGenerate}
                     onFiles={(files) => upload.acceptFiles(files)}

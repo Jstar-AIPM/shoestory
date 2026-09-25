@@ -43,10 +43,12 @@ export function TopBar({
               两个「鞋历」上下重复）。全大写 + 拉开字距是英文标识的常规做法，
               小字号下比中文粗体更"安静"，不会和首屏大标题抢视觉。 */}
           <div className="flex items-baseline gap-3">
-            <span className="text-[13px] font-semibold uppercase tracking-[0.22em] text-white">
+            <span className="text-[19px] font-extrabold uppercase leading-none tracking-[0.2em] text-white sm:text-[21px]">
               Shoestory
             </span>
-            <span className="hidden text-[12.5px] text-muted md:inline">收藏的不只是球鞋，是走过的日子</span>
+            <span className="hidden text-[12px] leading-none text-muted md:inline">
+              收藏的不只是球鞋，是走过的日子
+            </span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">

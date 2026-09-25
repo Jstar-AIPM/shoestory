@@ -70,18 +70,16 @@ export function UploadEntry({
           if (!disabled) onFiles(event.dataTransfer.files);
         }}
         aria-label="上传球鞋图片"
-        className={`group flex w-full flex-wrap items-center gap-x-5 gap-y-3 rounded-[var(--radius-card)] border-2 border-dashed px-5 py-5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+        // h-full + flex-col：让这个框撑满容器高度（与右侧示例区齐平），
+        // 文案在上半区垂直居中，主按钮压在下边 —— 2026-09-25 反馈 2 的排版要求。
+        className={`group flex h-full w-full flex-col justify-between gap-4 rounded-[var(--radius-card)] border-2 border-dashed px-5 py-5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
           dragging
             ? "border-[#5865f2] bg-[#5865f2]/15"
             : "border-[#5865f2]/45 bg-black/10 hover:border-[#5865f2] hover:bg-[#5865f2]/10"
         }`}
       >
-        {/* 看得出来的按钮（整块区域都可点/可拖，这里只是视觉主体） */}
-        <span className="btn-blurple pointer-events-none inline-flex h-12 shrink-0 items-center gap-2 rounded-full px-6 text-[15px] font-semibold text-white shadow-[0_6px_18px_rgba(88,101,242,0.35)]">
-          <span aria-hidden className="text-[17px] leading-none">＋</span>
-          选择照片
-        </span>
-        <span className="min-w-[220px] flex-1">
+        {/* 上半区：文案（在这一块里垂直居中） */}
+        <span className="flex min-w-0 flex-1 flex-col justify-center">
           <span className="block text-[14px] font-semibold text-ink">上传一张球鞋图，或拖进来</span>
           <span className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[12.5px] text-muted">
             <span>也可以直接粘贴：</span>
@@ -90,9 +88,15 @@ export function UploadEntry({
             </kbd>
             <span className="text-faint">（Windows 用 Ctrl+V）</span>
           </span>
+          {/* 措辞不写"白底"：两张示例图都是纯白底，说"干净的背景"更准也更少废话（反馈 6） */}
           <span className="mt-1.5 block text-[12.5px] leading-relaxed text-faint">
-            最好用商品详情页的图：白底、正侧面、只有一双鞋。列表页或多只鞋会被提示重新框选。
+            最好用商品详情页的图：干净的背景、正侧面、只有一双鞋。
           </span>
+        </span>
+        {/* 主按钮压在下边（整块区域都可点/可拖，这里只是视觉主体） */}
+        <span className="btn-blurple pointer-events-none inline-flex h-12 w-full shrink-0 items-center justify-center gap-2 rounded-full px-6 text-[15px] font-semibold text-white shadow-[0_6px_18px_rgba(88,101,242,0.35)]">
+          <span aria-hidden className="text-[17px] leading-none">＋</span>
+          选择照片
         </span>
       </button>
     </div>

@@ -39,12 +39,18 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
   return (
     <div data-theme="wall" className="wall-gradient flex min-h-screen items-center justify-center px-5">
       <div className="w-full max-w-[460px]">
-        <p className="display-upper text-[13px] text-accent">MY SHOE CABINET</p>
-        <h1 className="display-upper mt-3 text-[30px] text-white sm:text-[34px]">鞋历 · 我的鞋柜</h1>
+        {/* 与首页/顶栏同一套排版：英文标识在上，中文主名在下 */}
+        <p className="text-[17px] font-extrabold uppercase tracking-[0.2em] text-white sm:text-[19px]">
+          Shoestory
+        </p>
+        <p className="display-upper mt-2 text-[12px] tracking-[0.2em] text-accent">MY SHOE CABINET</p>
+        <h1 className="display-upper mt-3 text-[30px] text-white sm:text-[34px]">鞋历</h1>
         <p className="mt-3 text-[14px] text-accent">鞋会穿旧，故事不会。</p>
+        {/* JSX 不渲染 Markdown：这里原来写了 **您自己的**，界面上会原样显示星号，已改成 <strong> */}
         <p className="mt-4 text-[14px] leading-relaxed text-muted">
-          这是私人的球鞋纪念档案。请输入您收到的邀请码进入**您自己的**鞋柜 ——
-          一个邀请码对应一个独立鞋柜，别人看不到您的鞋，您也看不到别人的。
+          这是私人的球鞋纪念档案。请输入您收到的邀请码，进入
+          <strong className="font-medium text-ink">您自己的</strong>
+          鞋柜 —— 一个邀请码对应一个独立鞋柜，别人看不到您的鞋，您也看不到别人的。
         </p>
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -76,7 +82,7 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
         ) : null}
 
         <p className="mt-6 text-[12.5px] leading-relaxed text-faint">
-          邀请码由项目所有者发放：有效期 30 天、最多可生成 20 双鞋的线稿；
+          邀请码由项目所有者发放：有效期 30 天、最多可生成 20 双鞋的插画；
           额度用完后，已归档的鞋柜仍然可以查看。
         </p>
       </div>
