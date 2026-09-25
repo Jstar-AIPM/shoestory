@@ -312,3 +312,33 @@ def test_watercolor_task_can_be_archived(client_factory) -> None:
         # 列表项也要带上风格（卡片按各自风格渲染）
         listed = wc.get("/api/v1/archive").json()["items"]
         assert listed[0]["style_id"] == "watercolor"
+
+
+def test_archive_edit_is_reachable_by_post(client: TestClient) -> None:
+    """编辑档案必须能通过 **POST** 走通。
+
+    2026-09-25 线上实测：**veFaaS 的 API 网关不转发 PATCH 请求**
+    （对一个不存在的路径发 PATCH 得到空响应体的 404，而其他方法得到应用返回的 JSON 404），
+    于是 `PATCH /archive/{id}` 在线上永远 404 —— 前端表现为
+    "操作没有成功，服务返回了预期之外的内容"，**修改档案这个功能从上线起就是坏的**。
+    所以后端在同一个函数上叠了 POST 别名（`/archive/{id}/edit`），前端走它。
+    """
+    task = run_to_artwork(client, "kd12")
+    created = archive_task(client, task["task_id"], date_text="2019")
+
+    response = client.post(
+        f"/api/v1/archive/{created['shoe_id']}/edit",
+        json={"model_name": "Nike KD 12", "date_text": "2021年6月", "story": "改过的故事"},
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["model_name"] == "Nike KD 12"
+    assert body["story"] == "改过的故事"
+    assert body["date_sort_key"].startswith("2021-06")
+
+    # PATCH 也保留着（语义正确，网关支持后可以切回去）
+    patched = client.patch(
+        f"/api/v1/archive/{created['shoe_id']}", json={"story": "再改一次"}
+    )
+    assert patched.status_code == 200
+    assert patched.json()["story"] == "再改一次"

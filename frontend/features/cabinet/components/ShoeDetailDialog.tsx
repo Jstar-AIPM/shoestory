@@ -41,6 +41,8 @@ export function ShoeDetailDialog({
   const [mode, setMode] = useState<Mode>("view");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<AppError | null>(null);
+  //: 中性提示（不是错误）—— 例如"什么都没改"
+  const [notice, setNotice] = useState<string | null>(null);
 
   const [modelName, setModelName] = useState("");
   const [dateText, setDateText] = useState("");
@@ -85,8 +87,25 @@ export function ShoeDetailDialog({
 
   const save = async () => {
     if (!detail) return;
+    const next = {
+      model_name: modelName.trim(),
+      date_text: dateText.trim(),
+      story: story.trim(),
+    };
+    // 什么都没改就不打接口（2026-09-25 产品反馈 3）：
+    // 让人点一下保存却收到一个报错是最别扭的体验 —— 这里给一句中性提示就够了。
+    const unchanged =
+      next.model_name === (detail.model_name ?? "").trim() &&
+      next.date_text === (detail.date_text ?? "").trim() &&
+      next.story === (detail.story ?? "").trim();
+    if (unchanged) {
+      setError(null);
+      setNotice("内容没有变化，保持原样就好。想改的话直接编辑上面的字段再保存。");
+      return;
+    }
     setBusy(true);
     setError(null);
+    setNotice(null);
     try {
       const updated = await patchArchive(detail.shoe_id, {
         model_name: modelName.trim(),
@@ -221,7 +240,14 @@ export function ShoeDetailDialog({
                     </p>
                   </div>
                   <div className="mt-5 flex flex-wrap gap-2">
-                    <Button variant="secondary" onClick={() => setMode("edit")}>
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setNotice(null);
+                        setError(null);
+                        setMode("edit");
+                      }}
+                    >
                       编辑信息
                     </Button>
                     <Button variant="danger" onClick={() => setMode("confirm-delete")}>
@@ -239,7 +265,10 @@ export function ShoeDetailDialog({
                       id="edit-model"
                       value={modelName}
                       maxLength={80}
-                      onChange={(event) => setModelName(event.target.value)}
+                      onChange={(event) => {
+                        setModelName(event.target.value);
+                        setNotice(null);
+                      }}
                       className="mt-1.5"
                     />
                   </div>
@@ -249,7 +278,10 @@ export function ShoeDetailDialog({
                       id="edit-date"
                       value={dateText}
                       maxLength={40}
-                      onChange={(event) => setDateText(event.target.value)}
+                      onChange={(event) => {
+                        setDateText(event.target.value);
+                        setNotice(null);
+                      }}
                       className="mt-1.5"
                     />
                   </div>
@@ -260,7 +292,10 @@ export function ShoeDetailDialog({
                       rows={4}
                       maxLength={2000}
                       value={story}
-                      onChange={(event) => setStory(event.target.value)}
+                      onChange={(event) => {
+                        setStory(event.target.value);
+                        setNotice(null);
+                      }}
                       className="mt-1.5"
                     />
                   </div>
@@ -272,6 +307,11 @@ export function ShoeDetailDialog({
                       取消
                     </Button>
                   </div>
+                  {notice ? (
+                    <p className="text-[13px] leading-relaxed text-muted" role="status">
+                      {notice}
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
 
@@ -288,6 +328,11 @@ export function ShoeDetailDialog({
                       取消
                     </Button>
                   </div>
+                  {notice ? (
+                    <p className="text-[13px] leading-relaxed text-muted" role="status">
+                      {notice}
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
             </>

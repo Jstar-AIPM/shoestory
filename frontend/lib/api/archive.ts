@@ -14,7 +14,10 @@ export function patchArchive(
   shoeId: string,
   payload: { model_name?: string; date_text?: string | null; story?: string | null },
 ): Promise<ArchiveDetail> {
-  return request<ArchiveDetail>(`/archive/${shoeId}`, { method: "PATCH", body: payload });
+  // ⚠️ 用 POST 而不是 PATCH：线上的 veFaaS API 网关**不转发 PATCH**
+  // （实测：PATCH 任何路径都返回空响应体的 404），会让保存永远失败。
+  // 后端同时保留了 PATCH 版本（语义正确），网关支持后可以切回去。
+  return request<ArchiveDetail>(`/archive/${shoeId}/edit`, { method: "POST", body: payload });
 }
 
 export function deleteArchive(shoeId: string): Promise<{ deleted: boolean; removed_files: number }> {

@@ -169,7 +169,7 @@ export function useTaskFlow(onArchived?: (shoeId: string) => void, options: { en
 
   /** 归档：成功后才清空当前任务（不做乐观更新） */
   const archive = useCallback(
-    async (payload: { date_text?: string | null; story?: string | null }) => {
+    async (payload: { model_name?: string; date_text?: string | null; story?: string | null }) => {
       if (!taskId) return null;
       setBusy(true);
       setError(null);

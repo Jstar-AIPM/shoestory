@@ -104,6 +104,17 @@ def get_archive(
     )
 
 
+# ⚠️ 两个装饰器叠在同一个函数上，不是重复定义 —— 原因见下。
+#
+# 2026-09-25 线上实测：**veFaaS 的 API 网关不转发 PATCH 请求**。
+# 证据：对一个不存在的路径发 PATCH 得到的是**空响应体的 404**（网关自己返回的），
+# 而 GET/POST/PUT/DELETE 对同一路径得到的是应用返回的 JSON 404。
+# 后果：`PATCH /archive/{id}` 在线上永远 404 → 前端表现为
+# "操作没有成功，服务返回了预期之外的内容" → **修改档案这个功能从上线起就是坏的**。
+#
+# 所以保留 PATCH（语义正确，将来网关支持了就能用）+ 增加 POST 别名（网关确定转发）。
+# 前端走 POST；这条也写进了 E2E，防止再悄悄坏掉。
+@router.post("/{shoe_id}/edit", response_model=ArchiveItemOut)
 @router.patch("/{shoe_id}", response_model=ArchiveItemOut)
 def patch_archive(
     shoe_id: str,

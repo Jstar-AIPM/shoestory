@@ -31,7 +31,12 @@ export function cancelTask(taskId: string): Promise<{ task_id: string; state: st
 
 export function archiveTask(
   taskId: string,
-  payload: { date_text?: string | null; story?: string | null; attempt?: number },
+  payload: {
+    model_name?: string;
+    date_text?: string | null;
+    story?: string | null;
+    attempt?: number;
+  },
 ): Promise<{ shoe_id: string; artwork_url: string; date_sort_key: string | null; created_at: string }> {
   return request(`/tasks/${taskId}/archive`, { method: "POST", body: payload });
 }
