@@ -73,9 +73,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # ⚠️ 这里必须用 22+，不能用 20：
+      # 测试工具链要求更高的 Node —— `jsdom@30` 声明 `^22.22.2 || ^24.15.0 || >=26`，
+      # `vitest@5` / `undici@8` 也要 22 以上。用 20 会在跑 vitest 时报
+      # `webidl.util.markAsUncloneable is not a function`（本地实测踩过）。
+      #
+      # 这些都是 **devDependencies**，所以生产运行时仍是 veFaaS 的 node20（`next` 只要 >=20.9）；
+      # 两者不冲突 —— 但 CI 的 Node 版本必须跟测试工具链对齐。
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
