@@ -1,10 +1,20 @@
 name: tests
 
+# 触发：每次推送 + 每个 PR 都跑。
 on:
   push:
   pull_request:
 
+# 最小权限：这个仓库是公开的，任何人都能 fork 并提 PR。
+# 工作流只需要读取代码，所以显式收窄 GITHUB_TOKEN —— 不写的话拿到的是仓库默认权限，
+# 对公开仓库来说没必要。顺带说明：本工作流**不引用任何 secret**（测试全离线）。
+permissions:
+  contents: read
+
 jobs:
+  # ---------------------------------------------------------------------------
+  # 后端：310+ 项测试（全 mock、离线），外加两个冒烟脚本的自检
+  # ---------------------------------------------------------------------------
   pytest:
     runs-on: ubuntu-latest
     defaults:
@@ -47,3 +57,39 @@ jobs:
             echo "mock 干跑必须以退出码 2 结束（表示“未验收”）"; exit 1
           fi
           grep -q "演示模式（未验收）" ../docs/smoke-report-demo.md
+
+  # ---------------------------------------------------------------------------
+  # 前端：门槛四连 —— lint / 类型检查 / 单测 / 生产构建
+  #
+  # 为什么要把 build 也放进来：`tsc --noEmit` 查不出 Next 的路由与构建期问题，
+  # 而线上前端是 standalone 产物，构建不过就是部署不过 —— 这一条必须在 CI 里挡住。
+  # 后端地址有本地默认值（next.config.ts），CI 不需要注入 BACKEND_URL。
+  # ---------------------------------------------------------------------------
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 安装依赖（按 lock 文件，保证可重现）
+        run: npm ci
+
+      - name: 代码规范
+        run: npm run lint
+
+      - name: 类型检查
+        run: npm run typecheck
+
+      - name: 单元测试
+        run: npm run test
+
+      - name: 生产构建
+        run: npm run build
